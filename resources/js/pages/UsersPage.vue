@@ -16,10 +16,10 @@
         <thead class="bg-gray-200 dark:bg-gray-900">
           <tr>
             <th class="px-3 md:px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">No</th>
-            <th class="px-3 md:px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">Name</th>
+            <th class="px-3 md:px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">Nama</th>
             <th class="px-3 md:px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">Username</th>
             <th class="px-3 md:px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">Role</th>
-            <th class="px-3 md:px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">Actions</th>
+            <th class="px-3 md:px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">Aksi</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -47,7 +47,7 @@
                   @click="handleDelete(user)"
                   class="px-3 py-1 text-sm text-red-600 hover:text-red-700 dark:text-red-400 font-medium"
                 >
-                  Delete
+                  Hapus
                 </button>
               </div>
             </td>
@@ -69,7 +69,7 @@
 
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama</label>
             <input
               v-model="form.name"
               type="text"
@@ -116,14 +116,14 @@
               :disabled="loading"
               class="flex-1 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg disabled:opacity-50"
             >
-              {{ loading ? 'Saving...' : 'Save' }}
+              {{ loading ? 'Menyimpan...' : 'Simpan' }}
             </button>
             <button
               type="button"
               @click="showDialog = false"
               class="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg"
             >
-              Cancel
+              Batal
             </button>
           </div>
         </form>

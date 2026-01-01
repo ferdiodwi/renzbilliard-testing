@@ -99,6 +99,7 @@
       :table="selectedTable"
       @close="showStartDialog = false"
       @success="handleSessionStarted"
+      @start-payment="handleStartPayment"
     />
 
     <!-- Extend Session Dialog -->
@@ -121,7 +122,7 @@
     <PaymentDialog
       :show="showPaymentDialog"
       :sessionData="paymentData"
-      @close="showPaymentDialog = false"
+      @close="handlePaymentClose"
       @success="handlePaymentSuccess"
     />
 
@@ -176,6 +177,7 @@ const showOrderDialog = ref(false)
 const selectedSessionForOrder = ref(null)
 const selectedSessionForExtend = ref(null)
 const paymentData = ref(null)
+const isPaymentSuccessful = ref(false)
 
 let refreshInterval = null
 let countdownInterval = null
@@ -200,6 +202,31 @@ const handleStartSession = (table) => {
 
 const handleSessionStarted = () => {
   fetchTables()
+}
+
+const handleStartPayment = (data) => {
+    paymentData.value = {
+        session_id: data.id || null, // Might be null if virtual
+        table_number: data.table_number,
+        session_charges: Number(data.total_price || data.total_amount), // distinct field names
+        fnb_charges: 0,
+        total_charges: Number(data.total_price || data.total_amount),
+        fnb_orders: [],
+        is_prepaid: true,
+        is_create_session: !!data.is_create_session,
+        create_payload: data.is_create_session ? {
+            table_id: selectedTable.value.id,
+            ...data
+        } : null
+    }
+    isPaymentSuccessful.value = false
+    showPaymentDialog.value = true
+}
+
+const handlePaymentClose = async () => {
+    // No rollback needed as session is created ONLY on success now
+    showPaymentDialog.value = false
+    paymentData.value = null
 }
 
 const handleOrderFnB = (table) => {
@@ -235,16 +262,27 @@ const handleStopSession = async (table) => {
   try {
     const session = table.active_session
     
-    // Calculate current charges without stopping session
-    const now = new Date()
-    const scheduledEndTime = session.end_time ? new Date(session.end_time) : null
-    const effectiveEndTime = (scheduledEndTime && now > scheduledEndTime) ? scheduledEndTime : now
+    let sessionCharges = 0
     
-    const startTime = new Date(session.start_time)
-    const actualDuration = Math.floor((effectiveEndTime - startTime) / (1000 * 60)) // minutes
-    
-    // Calculate session charges based on rate
-    const sessionCharges = Math.ceil((actualDuration / 60) * session.rate.price_per_hour)
+    if (session.is_open_billing) {
+      // Open billing: calculate based on actual time
+      const now = new Date()
+      const startTime = new Date(session.start_time)
+      const actualDuration = Math.floor((now - startTime) / (1000 * 60)) // minutes
+      
+      // Minimum 2 hours (120 minutes) charge for open billing
+      const chargeableDuration = Math.max(120, actualDuration)
+      sessionCharges = Math.ceil((chargeableDuration / 60) * session.rate.price_per_hour)
+    } else {
+      // Closed billing: use session_price (raw session cost) from backend
+      // Do NOT use total_price as it aggregates session + F&B in TableController
+      // If already paid, session charges should be 0
+      if (session.is_paid) {
+          sessionCharges = 0
+      } else {
+          sessionCharges = session.session_price
+      }
+    }
     
     // Get F&B orders linked to this session
     let fnbOrders = []
@@ -261,6 +299,7 @@ const handleStopSession = async (table) => {
 
     // Ensure fnbTotal is a number
     fnbTotal = Number(fnbTotal)
+    sessionCharges = Number(sessionCharges)  // Ensure session charges is also a number
     
     // Prepare payment data for dialog
     paymentData.value = {
@@ -270,9 +309,11 @@ const handleStopSession = async (table) => {
       fnb_charges: fnbTotal,
       total_charges: sessionCharges + fnbTotal,
       fnb_orders: fnbOrders,
+      is_prepaid: false // This will force PaymentDialog to call /stop
     }
     
     // Show payment dialog (session masih aktif)
+    isPaymentSuccessful.value = false
     showPaymentDialog.value = true
   } catch (error) {
     notify.error(error.response?.data?.message || 'Gagal memuat data pembayaran')
@@ -280,7 +321,7 @@ const handleStopSession = async (table) => {
 }
 
 const handlePaymentSuccess = (transaction) => {
-  // Session already stopped in PaymentDialog before payment
+  isPaymentSuccessful.value = true
   showPaymentDialog.value = false
   
   // Clean up acknowledged session from localStorage since it's now paid

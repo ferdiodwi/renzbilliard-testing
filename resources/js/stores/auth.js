@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
-import { useNotificationStore } from './notification';
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
@@ -121,16 +120,9 @@ export const useAuthStore = defineStore('auth', {
 
                         isRedirecting = true;
 
-                        // Token expired or invalid (e.g. logged in on another device)
-                        const notify = useNotificationStore();
-                        notify.error('Sesi Anda telah berakhir. Silakan login kembali.');
-
+                        // Token expired or invalid - immediately logout and redirect
                         await this.logout();
-
-                        // Delay slightly to let toast render, then force hard redirect
-                        setTimeout(() => {
-                            window.location.href = '/login';
-                        }, 1000);
+                        window.location.href = '/login';
                     }
                     return Promise.reject(error);
                 }

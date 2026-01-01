@@ -76,7 +76,6 @@
       >
         <div class="flex items-center gap-2 2xsm:gap-3">
           <ThemeToggler />
-          <NotificationDropdown ref="notificationDropdown" />
         </div>
         <UserMenu />
       </div>
@@ -91,7 +90,6 @@ import ThemeToggler from '../common/ThemeToggler.vue'
 
 import HeaderLogo from './header/HeaderLogo.vue'
 import UserMenu from './header/UserMenu.vue'
-import NotificationDropdown from './header/NotificationDropdown.vue'
 
 const { toggleSidebar, toggleMobileSidebar, isMobileOpen } = useSidebar()
 
@@ -109,7 +107,4 @@ const notificationDropdown = ref(null)
 const toggleApplicationMenu = () => {
   isApplicationMenuOpen.value = !isApplicationMenuOpen.value
 }
-
-// Expose notification dropdown for external use
-defineExpose({ notificationDropdown })
 </script>

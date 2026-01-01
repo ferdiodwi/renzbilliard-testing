@@ -15,7 +15,7 @@ class PosController extends Controller
      */
     public function products(Request $request)
     {
-        $query = Product::available();
+        $query = Product::with('category')->available();
 
         if ($request->has('category')) {
             $query->byCategory($request->category);
@@ -25,7 +25,7 @@ class PosController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $products = $query->orderBy('category')->orderBy('name')->get();
+        $products = $query->orderBy('category_id')->orderBy('name')->get();
 
         return response()->json([
             'success' => true,
@@ -136,8 +136,11 @@ class PosController extends Controller
             ->orderBy('created_at', 'desc');
 
         // Filter by status
-        if ($request->has('status')) {
+        if ($request->has('status') && $request->status !== '') {
             $query->where('status', $request->status);
+        } else {
+            // By default, exclude cancelled orders
+            $query->whereIn('status', ['pending', 'completed']);
         }
 
         // Filter by date range
@@ -149,7 +152,20 @@ class PosController extends Controller
             $query->whereDate('created_at', '<=', $request->to_date);
         }
 
-        $orders = $query->paginate(20);
+        // Search by Order Number or Customer Name
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhereHas('session', function($sq) use ($search) {
+                      $sq->where('customer_name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $perPage = $request->input('per_page', 20);
+        $orders = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -222,6 +238,7 @@ class PosController extends Controller
                     'session_id' => null,
                     'product_id' => $item->product_id,
                     'price' => $item->subtotal,
+                    'quantity' => $item->quantity,
                 ]);
             }
 

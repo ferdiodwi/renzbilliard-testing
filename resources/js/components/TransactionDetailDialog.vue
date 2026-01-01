@@ -67,7 +67,7 @@
                   {{ item.product?.name }}
                 </p>
                 <div class="text-xs text-gray-500">
-                  {{ item.product?.category }}
+                  <span v-if="item.quantity">{{ item.quantity }} × Rp {{ formatCurrency(item.price / item.quantity) }}</span>
                 </div>
               </div>
 

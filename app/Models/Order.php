@@ -57,11 +57,16 @@ class Order extends Model
      */
     public static function generateOrderNumber(): string
     {
-        $prefix = 'FNB';
         $date = now()->format('Ymd');
-        $random = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        
-        return "{$prefix}-{$date}-{$random}";
+        $lastOrder = static::whereDate('created_at', today())
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $sequence = $lastOrder 
+            ? (int) substr($lastOrder->order_number, -4) + 1 
+            : 1;
+
+        return sprintf('FNB-%s-%04d', $date, $sequence);
     }
 
     /**

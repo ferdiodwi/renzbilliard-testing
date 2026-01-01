@@ -14,7 +14,7 @@
         :disabled="meta.current_page === meta.last_page"
         class="relative inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
       >
-        Next
+        Berikutnya
       </button>
     </div>
 
@@ -22,13 +22,13 @@
     <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
       <div>
         <p class="text-sm text-gray-700 dark:text-gray-300">
-          Showing
+          Menampilkan
           <span class="font-medium">{{ meta.from || 0 }}</span>
-          to
+          sampai
           <span class="font-medium">{{ meta.to || 0 }}</span>
-          of
+          dari
           <span class="font-medium">{{ meta.total || 0 }}</span>
-          results
+          hasil
         </p>
       </div>
       <div>
@@ -98,9 +98,9 @@ const changePage = (page) => {
 
 const changePageLink = (url) => {
     if (url) {
-        // Extract page number from URL if needed, depending on how API is called.
-        // Usually assuming standard Laravel Pagination URL formatting ?page=X
-        const urlParams = new URL(url).searchParams
+        // Extract page number from URL if needed
+        // Use window.location.origin as base for relative URLs
+        const urlParams = new URL(url, window.location.origin).searchParams
         const page = urlParams.get('page')
         if (page) {
             emit('page-change', parseInt(page))

@@ -34,11 +34,94 @@ class TransactionController extends Controller
             $query->where('payment_method', $request->payment_method);
         }
 
-        $transactions = $query->paginate(20);
+        // Filter by transaction type (has session or not)
+        if ($request->has('type') && $request->type === 'session') {
+            $query->whereHas('items', function($q) {
+                $q->whereNotNull('session_id');
+            });
+        }
+
+        // Search filter
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                // Search by invoice number
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  // Search by cashier name
+                  ->orWhereHas('cashier', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  })
+                  // Search by customer name in session
+                  ->orWhereHas('items.session', function($q) use ($search) {
+                      $q->where('customer_name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Calculate stats from ALL filtered data (before pagination)
+        $statsQuery = clone $query;
+        $stats = [
+            'total_transactions' => $statsQuery->count(),
+            'total_revenue' => $statsQuery->sum('total_amount'),
+            'cash_total' => (clone $statsQuery)->where('payment_method', 'cash')->sum('total_amount'),
+            'non_cash_total' => (clone $statsQuery)->where('payment_method', '!=', 'cash')->sum('total_amount'),
+        ];
+
+        // Get per_page from request with validation
+        $perPage = $request->input('per_page', 10);
+        $perPage = in_array($perPage, [10, 20, 50, 100]) ? $perPage : 10;
+
+        $transactions = $query->paginate($perPage);
+
+        // If type is 'session', also fetch unpaid sessions (playing or finished but not paid)
+        $unpaidSessions = [];
+        if ($request->has('type') && $request->type === 'session') {
+            // Check if page is 1 (only show unpaid on first page to act as "pinned" items)
+            if ($request->input('page', 1) == 1) {
+                // Fetch sessions that are:
+                // 1. Finished AND Unpaid
+                // 2. Playing AND Closed Billing (Pay Later) AND Unpaid
+                // EXCLUDE: Playing AND Open Billing (still running, price ongoing)
+                $unpaidQuery = SessionBilliard::with(['table', 'rate'])
+                    ->whereDoesntHave('transactionItem')
+                    ->where(function($q) {
+                        $q->where('status', 'finished')
+                          ->orWhere(function($subQ) {
+                              $subQ->where('status', 'playing')
+                                   ->where('is_open_billing', false);
+                          });
+                    });
+
+                // Apply search if needed (basic search by customer name)
+                if ($request->has('search') && $request->search) {
+                    $unpaidQuery->where('customer_name', 'like', '%' . $request->search . '%');
+                }
+                
+                $unpaidSessions = $unpaidQuery->orderBy('start_time', 'desc')->get()->map(function($session) {
+                    return [
+                        'id' => 'session_' . $session->id, // Virtual ID
+                        'original_id' => $session->id,
+                        'is_virtual' => true,
+                        'invoice_number' => 'SESI-' . $session->table->table_number,
+                        'customer_name' => $session->customer_name, // Direct access
+                        'paid_at' => $session->start_time, // Use start time as date reference
+                        'cashier' => null, // No cashier yet
+                        'payment_method' => '-',
+                        'total_amount' => $session->is_open_billing && $session->status === 'playing' 
+                            ? $session->getCurrentPriceEstimate() 
+                            : $session->total_price,
+                        'status' => 'unpaid', // Virtual status
+                        'type' => 'session_unpaid'
+                    ];
+                });
+            }
+        }
 
         return response()->json([
             'success' => true,
             'data' => $transactions,
+            'unpaid_sessions' => $unpaidSessions,
+            'stats' => $stats,
         ]);
     }
 
@@ -53,27 +136,26 @@ class TransactionController extends Controller
             'payment_method' => 'required|in:cash,qris,transfer',
         ]);
 
-        // Get finished sessions that haven't been paid
+        // Get finished or playing sessions that haven't been paid
         $sessions = SessionBilliard::whereIn('id', $request->session_ids)
-            ->where('status', 'finished')
+            ->whereIn('status', ['finished', 'playing'])
             ->whereDoesntHave('transactionItem')
             ->get();
 
-        if ($sessions->isEmpty()) {
+        // Get F&B orders linked to these sessions (pending only)
+        $fnbOrders = \App\Models\Order::whereIn('session_id', $request->session_ids)
+            ->where('status', 'pending')
+            ->with('items.product')
+            ->get();
+
+        if ($sessions->isEmpty() && $fnbOrders->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tidak ada sesi yang valid untuk dibayar',
+                'message' => 'Tidak ada tagihan yang perlu dibayar.',
             ], 422);
         }
 
         $totalAmount = $sessions->sum('total_price');
-        
-        // Get F&B orders linked to these sessions
-        $fnbOrders = \App\Models\Order::whereIn('session_id', $request->session_ids)
-            ->whereIn('status', ['pending', 'completed'])
-            ->with('items.product')
-            ->get();
-        
         $fnbTotal = $fnbOrders->sum('total');
         $totalAmount += $fnbTotal;
 
@@ -110,6 +192,7 @@ class TransactionController extends Controller
                         'session_id' => $order->session_id,
                         'product_id' => $item->product_id,
                         'price' => $item->subtotal,
+                        'quantity' => $item->quantity,
                     ]);
                 }
             }
@@ -190,6 +273,7 @@ class TransactionController extends Controller
                 'name' => $item->product->name,
                 'category' => $item->product->category,
             ];
+            $data['quantity'] = $item->quantity; // Add quantity field
             // Also include session info if needed (e.g. table number)
             if ($item->session) {
                 $data['session'] = [
@@ -242,5 +326,56 @@ class TransactionController extends Controller
             'success' => true,
             'data' => $sessions,
         ]);
+    }
+    /**
+     * Delete transaction.
+     */
+    public function destroy(Transaction $transaction): JsonResponse
+    {
+        DB::beginTransaction();
+        try {
+            // Get all related sessions from transaction items before deleting
+            $sessionIds = $transaction->items()
+                ->whereNotNull('session_id')
+                ->pluck('session_id')
+                ->unique();
+            
+            // Reset sessions to 'cancelled' status to prevent them from appearing as unpaid
+            if ($sessionIds->isNotEmpty()) {
+                SessionBilliard::whereIn('id', $sessionIds)
+                    ->update(['status' => 'cancelled']);
+            }
+            
+            // Get related orders and set to cancelled
+            $orderIds = $transaction->items()
+                ->whereHas('session.orders')
+                ->get()
+                ->flatMap(function($item) {
+                    return $item->session->orders->pluck('id');
+                })
+                ->unique();
+            
+            if ($orderIds->isNotEmpty()) {
+                \App\Models\Order::whereIn('id', $orderIds)
+                    ->where('status', 'completed')
+                    ->update(['status' => 'cancelled']);
+            }
+                
+            $transaction->items()->delete();
+            $transaction->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil dihapus',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus transaksi: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

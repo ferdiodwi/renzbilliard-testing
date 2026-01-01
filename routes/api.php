@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\RateController;
 use App\Http\Controllers\Api\SessionController;
 use App\Http\Controllers\Api\TableController;
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProductController;
@@ -56,6 +57,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sessions/start', [SessionController::class, 'start']);
     Route::post('/sessions/{session}/stop', [SessionController::class, 'stop']);
     Route::post('/sessions/{session}/extend', [SessionController::class, 'extend']);
+    Route::delete('/sessions/{session}', [SessionController::class, 'destroy']);
+    
+    // Bookings (all authenticated users can manage)
+    Route::get('/bookings/check-availability', [BookingController::class, 'checkAvailability']);
+    Route::get('/bookings', [BookingController::class, 'index']);
+    Route::post('/bookings', [BookingController::class, 'store']);
+    Route::get('/bookings/{id}', [BookingController::class, 'show']);
+    Route::put('/bookings/{id}', [BookingController::class, 'update']);
+    Route::delete('/bookings/{id}', [BookingController::class, 'destroy']);
+    Route::post('/bookings/{id}/check-in', [BookingController::class, 'checkIn']);
     
     // Session Orders
     Route::get('/sessions/{session}/order', [\App\Http\Controllers\Api\OrderController::class, 'show']);
@@ -72,12 +83,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile (all authenticated users)
     Route::put('/profile', [ProfileController::class, 'update']);
 
-    // Products (read for all, write for admin)
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/{id}', [ProductController::class, 'show']);
+    // Products Management (permission-based)
+    Route::middleware('permission:view-products')->get('/products', [ProductController::class, 'index']);
+    Route::get('/products/{id}', [ProductController::class, 'show']); // Keep existing show route
     Route::middleware('permission:create-products')->post('/products', [ProductController::class, 'store']);
     Route::middleware('permission:edit-products')->put('/products/{id}', [ProductController::class, 'update']);
     Route::middleware('permission:delete-products')->delete('/products/{id}', [ProductController::class, 'destroy']);
+
+    // Categories Management (admin only)
+    Route::apiResource('categories', \App\Http\Controllers\Api\CategoryController::class);
 
     // POS (all authenticated users)
     Route::prefix('pos')->group(function () {
@@ -87,6 +101,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders/{id}', [PosController::class, 'showOrder']);
         Route::post('/orders/{id}/pay', [PosController::class, 'payOrder']);
     });
+
+    // General Order Management
+    Route::delete('/orders/{id}', [\App\Http\Controllers\Api\OrderController::class, 'destroy']);
+    
+    // Admin Delete Transaction
+    Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy']);
 
     // User Management (permission-based)
     Route::middleware('permission:view-users')->get('/users', [UserController::class, 'index']);

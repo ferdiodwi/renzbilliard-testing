@@ -35,6 +35,11 @@ const routes = [
                 component: () => import('@/pages/SessionsPage.vue'),
             },
             {
+                path: 'bookings',
+                name: 'bookings',
+                component: () => import('@/pages/BookingListPage.vue'),
+            },
+            {
                 path: 'transactions',
                 name: 'transactions',
                 component: () => import('@/pages/TransactionsPage.vue'),
@@ -64,6 +69,12 @@ const routes = [
                 path: 'products',
                 name: 'products',
                 component: () => import('@/pages/ProductsPage.vue'),
+                meta: { adminOnly: true },
+            },
+            {
+                path: 'categories',
+                name: 'categories',
+                component: () => import('@/pages/CategoriesPage.vue'),
                 meta: { adminOnly: true },
             },
             {

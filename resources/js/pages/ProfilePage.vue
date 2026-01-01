@@ -1,7 +1,7 @@
 <template>
   <div class="p-6 space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Profile</h1>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Profil</h1>
     </div>
 
     <!-- Profile Card -->
@@ -21,7 +21,7 @@
         <!-- Name -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Full Name
+            Nama Lengkap
           </label>
           <input
             v-model="form.name"
@@ -46,30 +46,30 @@
 
         <!-- Change Password Section -->
         <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Change Password</h3>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ubah Password</h3>
           
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                New Password (leave blank to keep current)
+                Password Baru (kosongkan jika tidak ingin mengubah)
               </label>
               <input
                 v-model="form.password"
                 type="password"
                 class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
-                placeholder="Enter new password"
+                placeholder="Masukkan password baru"
               />
             </div>
 
             <div v-if="form.password">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirm Password
+                Konfirmasi Password
               </label>
               <input
                 v-model="form.password_confirmation"
                 type="password"
                 class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
-                placeholder="Confirm new password"
+                placeholder="Konfirmasi password baru"
               />
             </div>
           </div>
@@ -82,14 +82,14 @@
             :disabled="loading"
             class="px-6 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg transition disabled:opacity-50"
           >
-            {{ loading ? 'Saving...' : 'Save Changes' }}
+            {{ loading ? 'Menyimpan...' : 'Simpan Perubahan' }}
           </button>
           <button
             type="button"
             @click="resetForm"
             class="px-6 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg transition"
           >
-            Cancel
+            Batal
           </button>
         </div>
       </form>

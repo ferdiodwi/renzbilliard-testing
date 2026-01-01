@@ -48,7 +48,7 @@
             <!-- Image/Icon Area -->
             <div class="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden group-hover:shadow-sm transition-all">
               <img 
-                :src="getProductImage(product.category)" 
+                :src="getProductImage(product)" 
                 :alt="product.name"
                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
               />
@@ -58,9 +58,18 @@
                 {{ getProductQtyInCart(product.id) }}
               </div>
 
-               <!-- Stock Warning (Overlap) -->
-              <div v-if="product.stock !== null && product.stock <= 5" class="absolute bottom-0 inset-x-0 bg-red-500/90 text-white text-[10px] text-center py-1 font-bold backdrop-blur-sm z-10">
-                Sisa {{ product.stock }}
+              
+              <!-- Stock Badge - Show for all products with stock tracking -->
+              <div 
+                v-if="product.stock !== null" 
+                class="absolute bottom-0 inset-x-0 text-white text-[10px] text-center py-1 font-bold backdrop-blur-sm z-10"
+                :class="{
+                  'bg-red-500/90': product.stock <= 5,
+                  'bg-yellow-500/90': product.stock > 5 && product.stock <= 20,
+                  'bg-green-500/90': product.stock > 20
+                }"
+              >
+                Stok: {{ product.stock }}
               </div>
             </div>
             
@@ -81,7 +90,7 @@
     <!-- Cart Section (Right) - Hidden on mobile, show on md+ -->
     <div class="hidden md:flex md:w-96 flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-10">
       <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-        <h4 class="font-semibold text-gray-800 dark:text-white mb-3">Pesanan Kasir (Walk-in)</h4>
+        <h4 class="font-semibold text-gray-800 dark:text-white mb-3">Pesanan Kasir (Pelanggan Umum)</h4>
         
         <!-- Customer Name Input -->
         <div class="relative">
@@ -111,7 +120,7 @@
           <div v-for="item in cart" :key="item.product_id" class="flex gap-3 group">
             <div class="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shrink-0">
               <img 
-                :src="getProductImage(item.category)" 
+                :src="getProductImage(item)" 
                 :alt="item.name"
                 class="w-full h-full object-cover"
               />
@@ -121,7 +130,7 @@
                   <h5 class="text-sm font-medium text-gray-800 dark:text-white truncate pr-2">
                     {{ item.name }}
                   </h5>
-                  <button @click="removeFromCart(item)" class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
+                  <button @click="removeFromCart(item.product_id)" class="text-gray-400 hover:text-red-500 transition">
                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                        </svg>
@@ -167,7 +176,7 @@
           <span class="text-brand-600 dark:text-brand-400">Rp {{ formatCurrency(total) }}</span>
         </div>
         
-        <div class="grid grid-cols-4 gap-2">
+        <div class="grid grid-cols-5 gap-2">
             <button
               @click="clearCart"
               :disabled="cart.length === 0"
@@ -177,10 +186,21 @@
                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
              </svg>
             </button>
+            
+            <!-- Pay Later Button -->
             <button
-              @click="checkout"
+              @click="checkoutPayLater"
               :disabled="cart.length === 0 || loading"
-              class="col-span-3 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
+              class="col-span-2 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-xl shadow-lg shadow-yellow-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all text-sm"
+            >
+              Bayar Nanti
+            </button>
+            
+            <!-- Pay Now Button -->
+            <button
+              @click="checkoutPayNow"
+              :disabled="cart.length === 0 || loading"
+              class="col-span-2 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all text-sm"
             >
               {{ loading ? 'Memproses...' : 'Bayar Sekarang' }}
             </button>
@@ -292,7 +312,7 @@
             <span class="text-brand-600 dark:text-brand-400">Rp {{ formatCurrency(total) }}</span>
           </div>
           
-          <div class="grid grid-cols-4 gap-2">
+          <div class="grid grid-cols-5 gap-2">
             <button
               @click="clearCart"
               :disabled="cart.length === 0"
@@ -302,10 +322,20 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
             </button>
+            <!-- Pay Later Button -->
             <button
-              @click="checkout"
+              @click="checkoutPayLater"
               :disabled="cart.length === 0 || loading"
-              class="col-span-3 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
+              class="col-span-2 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-xl shadow-lg shadow-yellow-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all text-sm"
+            >
+              Bayar Nanti
+            </button>
+            
+            <!-- Pay Now Button -->
+            <button
+              @click="checkoutPayNow"
+              :disabled="cart.length === 0 || loading"
+              class="col-span-2 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all text-sm"
             >
               {{ loading ? 'Memproses...' : 'Bayar Sekarang' }}
             </button>
@@ -330,12 +360,15 @@ import axios from 'axios'
 import PosPaymentDialog from '@/components/PosPaymentDialog.vue'
 import { useNotificationStore } from '@/stores/notification'
 import { useConfirmStore } from '@/stores/confirm'
+import { useOrderStore } from '@/stores/order'
 
 const notify = useNotificationStore()
 const confirm = useConfirmStore()
+const orderStore = useOrderStore()
 
 // State
 const products = ref([])
+const apiCategories = ref([])
 const cart = ref([])
 const loading = ref(false)
 const search = ref('')
@@ -345,14 +378,25 @@ const showPaymentDialog = ref(false)
 const createdOrder = ref(null)
 const showMobileCart = ref(false)
 
-const categories = [
-  { label: 'Semua', value: 'all' },
-  { label: 'Makanan', value: 'makanan' },
-  { label: 'Minuman', value: 'minuman' },
-  { label: 'Snack', value: 'snack' },
-]
+const categories = computed(() => {
+  const cats = [{ label: 'Semua', value: 'all' }]
+  apiCategories.value.forEach(cat => {
+    cats.push({ label: cat.name, value: cat.id })
+  })
+  return cats
+})
 
 // Methods
+const fetchCategories = async () => {
+  try {
+    const response = await axios.get('/api/categories')
+    apiCategories.value = response.data.data || []
+  } catch (error) {
+    console.error('Failed to fetch categories:', error)
+    apiCategories.value = []
+  }
+}
+
 const fetchProducts = async () => {
   loading.value = true
   try {
@@ -370,7 +414,7 @@ const fetchProducts = async () => {
 const filteredProducts = computed(() => {
   return products.value.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(search.value.toLowerCase())
-    const matchesCategory = selectedCategory.value === 'all' || product.category === selectedCategory.value
+    const matchesCategory = selectedCategory.value === 'all' || product.category_id === selectedCategory.value
     return matchesSearch && matchesCategory
   })
 })
@@ -379,23 +423,37 @@ const addToCart = (product) => {
   const existingItem = cart.value.find(item => item.product_id === product.id)
   
   if (existingItem) {
-    // Check stock if needed
-    if (product.stock !== null && existingItem.quantity >= product.stock) return
+    // Check stock if product uses stock tracking
+    if (product.stock !== null && existingItem.quantity >= product.stock) {
+      notify.warning(`Stok ${product.name} hanya tersisa ${product.stock} item`)
+      return
+    }
     existingItem.quantity++
   } else {
-    // Check stock if needed
-    if (product.stock !== null && product.stock < 1) return
+    // Check stock if product uses stock tracking
+    if (product.stock !== null && product.stock < 1) {
+      notify.warning(`${product.name} sedang habis`)
+      return
+    }
     cart.value.push({
       product_id: product.id,
       name: product.name,
       price: product.price,
       quantity: 1,
-      category: product.category // for emoji
+      image: product.image, // custom product image
+      category: product.category, // category object for fallback
+      stock: product.stock // store stock reference
     })
   }
 }
 
 const updateQuantity = (item, delta) => {
+  // Check stock when increasing
+  if (delta > 0 && item.stock !== null && item.quantity >= item.stock) {
+    notify.warning(`Stok ${item.name} hanya tersisa ${item.stock} item`)
+    return
+  }
+  
   item.quantity += delta
   if (item.quantity <= 0) {
     removeFromCart(item.product_id)
@@ -405,6 +463,11 @@ const updateQuantity = (item, delta) => {
 const increaseQuantity = (productId) => {
   const item = cart.value.find(i => i.product_id === productId)
   if (item) {
+    // Check stock when increasing
+    if (item.stock !== null && item.quantity >= item.stock) {
+      notify.warning(`Stok ${item.name} hanya tersisa ${item.stock} item`)
+      return
+    }
     item.quantity++
   }
 }
@@ -464,39 +527,79 @@ const getProductEmoji = (category) => {
   }
 }
 
-const getProductImage = (category) => {
+const getProductImage = (product) => {
+  // Use product's custom image if available
+  if (product?.image) {
+    return `/images/products/${product.image}`
+  }
+  
+  // Fallback to category default
+  const category = product?.category?.name?.toLowerCase()
   switch(category) {
     case 'makanan': return '/images/product/custom-food.jpg'
     case 'minuman': return '/images/product/custom-drink.jpg'
     case 'snack': return '/images/product/custom-snack.jpg'
+    case 'glove': return '/images/product/glove.jpg'
     default: return '/images/product/product-04.jpg'
   }
 }
 
 const formatCurrency = (val) => new Intl.NumberFormat('id-ID').format(val)
 
-const checkout = async () => {
+const createOrder = async () => {
+  const orderData = {
+    customer_name: customerName.value || null,
+    session_id: null,
+    items: cart.value.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+    })),
+  }
+
+  const response = await axios.post('/api/pos/orders', orderData)
+  
+  cart.value = []
+  customerName.value = ''
+  
+  // Refresh pending orders count
+  orderStore.fetchPendingCount()
+  
+  // Refresh products to update stock
+  fetchProducts()
+  
+  return response.data.data
+}
+
+const checkoutPayNow = async () => {
   loading.value = true
   try {
-    const orderData = {
-      customer_name: customerName.value || null,
-      session_id: null,
-      items: cart.value.map(item => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-      })),
-    }
-
-    const response = await axios.post('/api/pos/orders', orderData)
-    
-    cart.value = []
-    customerName.value = ''
-    
-    createdOrder.value = response.data.data
+    const order = await createOrder()
+    createdOrder.value = order
     showPaymentDialog.value = true
-
   } catch (error) {
     notify.error(error.response?.data?.message || 'Gagal memproses pesanan')
+  } finally {
+    loading.value = false
+  }
+}
+
+const checkoutPayLater = async () => {
+  const confirmed = await confirm.show({
+      title: 'Bayar Nanti',
+      message: 'Order akan disimpan sebagai belum bayar. Lanjutkan?',
+      confirmText: 'Ya, Simpan Order',
+      type: 'info'
+  })
+  
+  if (!confirmed) return
+
+  loading.value = true
+  try {
+    await createOrder()
+    notify.success('Order berhasil disimpan. Silakan bayar melalui menu Riwayat Pesanan.')
+    // Optional: Redirect to orders page or just clear cart (already cleared in createOrder)
+  } catch (error) {
+    notify.error(error.response?.data?.message || 'Gagal menyimpan pesanan')
   } finally {
     loading.value = false
   }
@@ -505,9 +608,12 @@ const checkout = async () => {
 const handlePaymentSuccess = () => {
     showPaymentDialog.value = false
     createdOrder.value = null
+    // Refresh pending orders count (in case pay now makes it completed, or cancelled/failed leaves it pending)
+    orderStore.fetchPendingCount()
 }
 
 onMounted(() => {
+  fetchCategories()
   fetchProducts()
 })
 </script>

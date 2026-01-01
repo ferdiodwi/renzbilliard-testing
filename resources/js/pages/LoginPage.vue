@@ -8,7 +8,7 @@
           <span class="text-3xl font-bold text-white">R</span>
         </div>
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">RenzBilliard</h1>
-        <p class="text-gray-600 dark:text-gray-400">Billing System</p>
+        <p class="text-gray-600 dark:text-gray-400">Sistem Billing</p>
       </div>
 
       <!-- Login Form Card -->
@@ -24,7 +24,7 @@
               type="text"
               required
               class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-              placeholder="Enter your username"
+              placeholder="Masukkan username Anda"
             />
           </div>
 
@@ -39,7 +39,7 @@
                 :type="showPassword ? 'text' : 'password'"
                 required
                 class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all pr-12"
-                placeholder="Enter your password"
+                placeholder="Masukkan password Anda"
               />
               <button
                 type="button"
@@ -68,13 +68,13 @@
             :disabled="loading"
             class="w-full py-3 px-4 bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white font-semibold rounded-lg shadow-lg shadow-brand-500/30 hover:shadow-brand-600/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span v-if="!loading">Sign In</span>
+            <span v-if="!loading">Masuk</span>
             <span v-else class="flex items-center justify-center gap-2">
               <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Signing in...
+              Memproses...
             </span>
           </button>
         </form>

@@ -15,6 +15,7 @@ class TransactionItem extends Model
         'session_id',
         'product_id',
         'price',
+        'quantity',
     ];
 
     protected $casts = [

@@ -17,36 +17,47 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             UserSeeder::class,
+            CategorySeeder::class,  // Must be seeded before products
             ProductSeeder::class,
         ]);
 
-        // Create sample tables (10 tables)
-        for ($i = 1; $i <= 10; $i++) {
+        // Create 6 rates with table-specific names
+        $rateMeja1 = Rate::create([
+            'name' => 'Meja 1',
+            'price_per_hour' => 15000,
+        ]);
+
+        $rateMeja2 = Rate::create([
+            'name' => 'Meja 2',
+            'price_per_hour' => 15000,
+        ]);
+
+        $rateMeja3 = Rate::create([
+            'name' => 'Meja 3',
+            'price_per_hour' => 15000,
+        ]);
+
+        $rateMeja4 = Rate::create([
+            'name' => 'Meja 4',
+            'price_per_hour' => 20000,
+        ]);
+
+        $rateMeja5 = Rate::create([
+            'name' => 'Meja 5',
+            'price_per_hour' => 20000,
+        ]);
+
+        $rateMeja6 = Rate::create([
+            'name' => 'Meja 6',
+            'price_per_hour' => 20000,
+        ]);
+
+        // Create 6 tables
+        for ($i = 1; $i <= 6; $i++) {
             TableBilliard::create([
-                'table_number' => 'M' . str_pad($i, 2, '0', STR_PAD_LEFT),
+                'table_number' => (string)$i,
                 'status' => 'available',
             ]);
         }
-
-        // Create sample rates
-        Rate::create([
-            'name' => 'Reguler',
-            'price_per_hour' => 30000,
-        ]);
-
-        Rate::create([
-            'name' => 'Premium',
-            'price_per_hour' => 50000,
-        ]);
-
-        Rate::create([
-            'name' => 'VIP',
-            'price_per_hour' => 75000,
-        ]);
-
-        Rate::create([
-            'name' => 'Promo Malam',
-            'price_per_hour' => 25000,
-        ]);
     }
 }

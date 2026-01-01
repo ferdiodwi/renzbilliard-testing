@@ -21,6 +21,7 @@ class SessionBilliard extends Model
         'total_price',
         'status',
         'auto_stop',
+        'is_open_billing',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class SessionBilliard extends Model
         'duration_minutes' => 'integer',
         'total_price' => 'decimal:2',
         'auto_stop' => 'boolean',
+        'is_open_billing' => 'boolean',
     ];
 
     /**
@@ -68,6 +70,15 @@ class SessionBilliard extends Model
      */
     public function isExpired(): bool
     {
+        // Open billing never expires
+        if ($this->is_open_billing) {
+            return false;
+        }
+        
+        if (!$this->end_time) {
+            return false;
+        }
+        
         return $this->status === 'playing' && Carbon::now()->gte($this->end_time);
     }
 
@@ -77,6 +88,15 @@ class SessionBilliard extends Model
     public function getRemainingSecondsAttribute(): int
     {
         if ($this->status !== 'playing') {
+            return 0;
+        }
+
+        // Open billing has unlimited time
+        if ($this->is_open_billing) {
+            return -1; // -1 indicates unlimited
+        }
+
+        if (!$this->end_time) {
             return 0;
         }
 
@@ -90,7 +110,22 @@ class SessionBilliard extends Model
     public function getElapsedMinutesAttribute(): int
     {
         $elapsed = Carbon::now()->diffInMinutes($this->start_time);
-        return min($elapsed, $this->duration_minutes);
+        
+        // For open billing, return actual elapsed time (no cap)
+        if ($this->is_open_billing) {
+            return $elapsed;
+        }
+        
+        // For closed billing, cap at duration_minutes
+        return min($elapsed, $this->duration_minutes ?? $elapsed);
+    }
+
+    /**
+     * Get elapsed time in seconds.
+     */
+    public function getElapsedSecondsAttribute(): int
+    {
+        return Carbon::now()->diffInSeconds($this->start_time);
     }
 
     /**
@@ -115,6 +150,25 @@ class SessionBilliard extends Model
      */
     public function scopeNeedsAutoStop($query)
     {
-        return $query->expired()->where('auto_stop', true);
+        return $query->expired()
+            ->where('auto_stop', true)
+            ->where('is_open_billing', false); // Skip open billing
+    }
+
+    /**
+     * Get current price estimate for open billing.
+     */
+    public function getCurrentPriceEstimate(): float
+    {
+        if (!$this->is_open_billing) {
+            return (float) $this->total_price;
+        }
+        
+        $elapsedMinutes = $this->elapsed_minutes;
+        
+        // Minimum 2 hours (120 minutes) charge for open billing
+        $chargeableMinutes = max(120, $elapsedMinutes);
+        
+        return $this->rate->calculatePrice($chargeableMinutes);
     }
 }

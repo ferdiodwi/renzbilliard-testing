@@ -154,8 +154,10 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 import { useNotificationStore } from '@/stores/notification'
+import { useOrderStore } from '@/stores/order'
 
 const notify = useNotificationStore()
+const orderStore = useOrderStore()
 
 const props = defineProps({
   show: {
@@ -185,29 +187,49 @@ const handlePayment = async () => {
 
   loading.value = true
   try {
-    // Step 1: Stop the session first
-    const stopResponse = await axios.post(`/api/sessions/${props.sessionData.session_id}/stop`)
-    
-    if (!stopResponse.data.success) {
-      throw new Error('Gagal menghentikan sesi')
+    let sessionIdToPay = props.sessionData.session_id
+
+    // NEW: If this is a create-and-pay flow, create session first!
+    if (props.sessionData.is_create_session) {
+        const startResponse = await axios.post('/api/sessions/start', props.sessionData.create_payload)
+        if (startResponse.data.success) {
+            sessionIdToPay = startResponse.data.data.id
+        } else {
+            throw new Error('Gagal membuat sesi')
+        }
+    } else {
+        // Step 1: Stop the session (Always call stop to finish the session)
+        const stopResponse = await axios.post(`/api/sessions/${props.sessionData.session_id}/stop`)
+        
+        if (!stopResponse.data.success) {
+          throw new Error('Gagal menghentikan sesi')
+        }
     }
 
-    // Step 2: Create transaction with the finished session
-    const response = await axios.post('/api/transactions', {
-      session_ids: [props.sessionData.session_id],
-      payment_method: selectedMethod.value,
-    })
-
-    if (response.data.success) {
-      const change = selectedMethod.value === 'cash' ? cashPaid.value - props.sessionData.total_charges : 0
-      
-      notify.success(`Pembayaran berhasil! Invoice: ${response.data.data.invoice_number}`, 5000)
-      if (change > 0) {
-        notify.info(`Kembalian: Rp ${formatCurrency(change)}`, 5000)
-      }
-      
-      emit('success', response.data.data)
-      closeDialog()
+    // Step 2: Create transaction
+    if (props.sessionData.total_charges > 0) {
+        const response = await axios.post('/api/transactions', {
+          session_ids: [sessionIdToPay],
+          payment_method: selectedMethod.value,
+        })
+    
+        if (response.data.success) {
+          const change = selectedMethod.value === 'cash' ? cashPaid.value - props.sessionData.total_charges : 0
+          
+          notify.success(`Pembayaran berhasil! Invoice: ${response.data.data.invoice_number}`)
+          orderStore.fetchPendingCount() // Update badge count
+          if (change > 0) {
+            notify.info(`Kembalian: Rp ${formatCurrency(change)}`, 'Kembalian', 5000)
+          }
+          
+          emit('success', response.data.data)
+          closeDialog()
+        }
+    } else {
+        // Zero charges (Prepaid), just finish
+        notify.success('Sesi berhasil dihentikan (Sudah Lunas)')
+        emit('success', null)
+        closeDialog()
     }
   } catch (error) {
     const message = error.response?.data?.message || error.message || 'Gagal memproses pembayaran'

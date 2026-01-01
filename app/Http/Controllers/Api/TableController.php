@@ -55,9 +55,12 @@ class TableController extends Controller
                     'id' => $table->activeSession->id,
                     'customer_name' => $table->activeSession->customer_name,
                     'start_time' => $table->activeSession->start_time->toIso8601String(),
-                    'end_time' => $table->activeSession->end_time->toIso8601String(),
+                    'end_time' => $table->activeSession->end_time?->toIso8601String(),
                     'remaining_seconds' => $table->activeSession->remaining_seconds,
                     'duration_minutes' => $table->activeSession->duration_minutes,
+                    'elapsed_minutes' => $table->activeSession->elapsed_minutes,
+                    'elapsed_seconds' => $table->activeSession->elapsed_seconds,
+                    'is_open_billing' => $table->activeSession->is_open_billing,
                     'rate' => [
                         'name' => $table->activeSession->rate->name,
                         'price_per_hour' => $table->activeSession->rate->price_per_hour,
@@ -66,7 +69,31 @@ class TableController extends Controller
                     'fnb_total' => $fnbTotal,
                     'fnb_summary' => $fnbSummary,
                     'total_price' => $table->activeSession->total_price + $fnbTotal,
+                    'current_price_estimate' => $table->activeSession->getCurrentPriceEstimate(),
+                    'is_paid' => $table->activeSession->transactionItem()->exists(),
                 ];
+            }
+            
+            // Check for next booking today (for conflict prevention)
+            if ($table->status === 'available' || $table->status === 'playing') {
+                $nextBooking = \App\Models\Booking::where('table_id', $table->id)
+                    ->whereDate('booking_date', today())
+                    ->whereIn('status', ['PENDING', 'CONFIRMED'])
+                    ->where('start_time', '>', now())
+                    ->orderBy('start_time')
+                    ->first(['start_time', 'customer_name']);
+                
+                if ($nextBooking) {
+                    $minutesUntilBooking = now()->diffInMinutes($nextBooking->start_time);
+                    
+                    $result['next_booking'] = [
+                        'start_time' => $nextBooking->start_time->format('H:i'),
+                        'customer_name' => $nextBooking->customer_name,
+                    ];
+                    
+                    // Max duration is minutes until booking minus 10 min buffer
+                    $result['max_duration_minutes'] = max(0, $minutesUntilBooking - 10);
+                }
             }
 
             return $result;

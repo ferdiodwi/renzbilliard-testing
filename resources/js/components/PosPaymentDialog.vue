@@ -31,7 +31,7 @@
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <span class="text-gray-600 dark:text-gray-400">Customer</span>
-                    <span class="font-medium text-gray-800 dark:text-white">{{ order.customer_name || 'Walk-in' }}</span>
+                    <span class="font-medium text-gray-800 dark:text-white">{{ order.customer_name || 'Pelanggan Umum' }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-600 dark:text-gray-400">Total Item</span>
@@ -126,8 +126,10 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 import { useNotificationStore } from '@/stores/notification'
+import { useOrderStore } from '@/stores/order'
 
 const notify = useNotificationStore()
+const orderStore = useOrderStore()
 
 const props = defineProps({
   show: {
@@ -164,9 +166,10 @@ const handlePayment = async () => {
     if (response.data.success) {
       const change = selectedMethod.value === 'cash' ? cashPaid.value - props.order.total : 0
       
-      notify.success(`Pembayaran berhasil! Invoice: ${response.data.data.invoice_number}`, 5000)
+      notify.success(`Pembayaran berhasil! Invoice: ${response.data.data.invoice_number}`)
+      orderStore.fetchPendingCount() // Update badge count
       if (change > 0) {
-        notify.info(`Kembalian: Rp ${formatCurrency(change)}`, 5000)
+        notify.info(`Kembalian: Rp ${formatCurrency(change)}`, 'Kembalian', 5000)
       }
       
       emit('success', response.data.data)

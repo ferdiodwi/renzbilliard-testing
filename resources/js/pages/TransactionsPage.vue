@@ -8,29 +8,38 @@
       </p>
     </div>
 
-    <!-- Filters & Stats -->
-    <div class="grid gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-gray-800 dark:border-gray-700">
-        <p class="text-sm text-gray-500 dark:text-gray-400">Total Transaksi</p>
-        <p class="text-2xl font-bold text-gray-800 dark:text-white">{{ stats.total_transactions }}</p>
+
+
+    <!-- Rows per page & Search -->
+    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
+      <!-- Rows per page selector -->
+      <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+        <span>Tampilkan</span>
+        <select
+          v-model="perPage"
+          class="px-3 py-1.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand-500"
+        >
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+        </select>
+        <span>baris</span>
       </div>
-      <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-gray-800 dark:border-gray-700">
-        <p class="text-sm text-gray-500 dark:text-gray-400">Total Pendapatan</p>
-        <p class="text-2xl font-bold text-success-600 dark:text-success-400">
-          Rp {{ formatCurrency(stats.total_revenue) }}
-        </p>
-      </div>
-      <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-gray-800 dark:border-gray-700">
-        <p class="text-sm text-gray-500 dark:text-gray-400">Tunai</p>
-        <p class="text-xl font-bold text-gray-800 dark:text-white">
-          Rp {{ formatCurrency(stats.cash_total) }}
-        </p>
-      </div>
-      <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-gray-800 dark:border-gray-700">
-        <p class="text-sm text-gray-500 dark:text-gray-400">Non-Tunai</p>
-        <p class="text-xl font-bold text-gray-800 dark:text-white">
-          Rp {{ formatCurrency(stats.non_cash_total) }}
-        </p>
+
+      <!-- Search Bar -->
+      <div class="relative w-full md:w-96">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Cari invoice, pelanggan, atau kasir..."
+          class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand-500"
+        />
       </div>
     </div>
 
@@ -47,7 +56,7 @@
                 Invoice
               </th>
               <th class="px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">
-                Customer
+                Pelanggan
               </th>
               <th class="px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">
                 Tanggal
@@ -57,6 +66,9 @@
               </th>
               <th class="px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">
                 Metode
+              </th>
+              <th class="px-6 py-3 text-xs font-bold tracking-wider text-left text-gray-700 uppercase dark:text-gray-400">
+                Status
               </th>
               <th class="px-6 py-3 text-xs font-bold tracking-wider text-right text-gray-700 uppercase dark:text-gray-400">
                 Total
@@ -78,7 +90,7 @@
             </tr>
             <tr v-else-if="transactions.length === 0">
               <td colspan="8" class="px-6 py-8 text-center text-gray-500">
-                Belum ada transaksi
+                {{ searchQuery ? 'Tidak ada hasil pencarian' : 'Belum ada transaksi' }}
               </td>
             </tr>
             <tr v-else v-for="(transaction, index) in transactions" :key="transaction.id" class="hover:bg-gray-50 dark:hover:bg-gray-900">
@@ -112,6 +124,14 @@
                   {{ formatPaymentMethod(transaction.payment_method) }}
                 </span>
               </td>
+              <td class="px-6 py-4">
+                <span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full" 
+                  :class="transaction.status === 'unpaid' 
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400' 
+                    : 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'">
+                  {{ transaction.status === 'unpaid' ? 'Belum Lunas' : 'Lunas' }}
+                </span>
+              </td>
               <td class="px-6 py-4 text-right">
                 <p class="text-sm font-semibold text-gray-800 dark:text-white">
                   Rp {{ formatCurrency(transaction.total_amount) }}
@@ -123,6 +143,13 @@
                   class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-brand-600 transition rounded-lg hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-500/10"
                 >
                   Detail
+                </button>
+                <button
+                  v-if="transaction.status !== 'unpaid'"
+                  @click="handleDeleteTransaction(transaction.id)"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 transition rounded-lg hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 ml-2"
+                >
+                  Hapus
                 </button>
               </td>
             </tr>
@@ -153,6 +180,11 @@ import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import TransactionDetailDialog from '@/components/TransactionDetailDialog.vue'
 import Pagination from '@/components/ui/Pagination.vue'
+import { useNotificationStore } from '@/stores/notification'
+import { useConfirmStore } from '@/stores/confirm'
+
+const notify = useNotificationStore()
+const confirm = useConfirmStore()
 
 const loading = ref(false)
 const transactions = ref([])
@@ -160,16 +192,15 @@ const pagination = ref({ links: [], meta: {} })
 const selectedTransaction = ref(null)
 const showDetail = ref(false)
 const currentPage = ref(1)
+const searchQuery = ref('')
+const perPage = ref(10)
 
-const stats = computed(() => {
-  return {
-    total_transactions: pagination.value.meta.total || transactions.value.length,
-    // Note: total revenue here will only be for current page if not handled by dedicated stats API
-    // For now we will keep it as is, but be aware it might only show stats for loaded items if we don't have a separate stats endpoint
-    total_revenue: transactions.value.reduce((sum, t) => sum + parseFloat(t.total_amount), 0),
-    cash_total: transactions.value.filter(t => t.payment_method === 'cash').reduce((sum, t) => sum + parseFloat(t.total_amount), 0),
-    non_cash_total: transactions.value.filter(t => t.payment_method !== 'cash').reduce((sum, t) => sum + parseFloat(t.total_amount), 0),
-  }
+// Stats from backend
+const stats = ref({
+  total_transactions: 0,
+  total_revenue: 0,
+  cash_total: 0,
+  non_cash_total: 0,
 })
 
 const fetchTransactions = async (page = 1) => {
@@ -177,10 +208,24 @@ const fetchTransactions = async (page = 1) => {
   currentPage.value = page
   try {
     const response = await axios.get('/api/transactions', {
-        params: { page }
+        params: { 
+            page,
+            search: searchQuery.value || undefined,
+            per_page: perPage.value,
+            type: 'session'
+        }
     })
     if (response.data.success) {
-      transactions.value = response.data.data.data
+      // Merge unpaid sessions (virtual) at the top
+      const unpaid = response.data.unpaid_sessions || []
+      const realTransactions = response.data.data.data
+      
+      transactions.value = [...unpaid, ...realTransactions]
+      
+      // Update stats from backend
+      if (response.data.stats) {
+        stats.value = response.data.stats
+      }
       pagination.value = {
         links: response.data.data.links,
         meta: {
@@ -199,13 +244,56 @@ const fetchTransactions = async (page = 1) => {
   }
 }
 
+// Watch search query and fetch with debounce
+import { watch } from 'vue'
+let searchTimeout = null
+watch(searchQuery, () => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    fetchTransactions(1) // Reset to page 1 on search
+  }, 500) // 500ms debounce
+})
+
+// Watch perPage changes
+watch(perPage, () => {
+  fetchTransactions(1) // Reset to page 1 when changing rows per page
+})
+
 const handlePageChange = (page) => {
     fetchTransactions(page)
 }
 
 const viewDetail = (transaction) => {
+  if (transaction.status === 'unpaid') {
+      window.location.href = '/dashboard' 
+      return
+  }
   selectedTransaction.value = transaction
   showDetail.value = true
+}
+
+const handleDeleteTransaction = async (id) => {
+    const confirmed = await confirm.show({
+        title: 'Hapus Transaksi',
+        message: 'Apakah Anda yakin ingin menghapus riwayat transaksi ini? Data yang dihapus tidak dapat dikembalikan.',
+        confirmText: 'Hapus',
+        cancelText: 'Batal',
+        type: 'danger'
+    })
+    
+    if (!confirmed) return
+
+    try {
+        const response = await axios.delete(`/api/transactions/${id}`)
+        if (response.data.success) {
+            notify.success('Transaksi berhasil dihapus')
+            fetchTransactions(currentPage.value)
+        }
+    } catch (error) {
+        console.error('Failed to delete transaction:', error)
+        const errorMessage = error.response?.data?.message || 'Gagal menghapus transaksi'
+        notify.error(errorMessage)
+    }
 }
 
 const formatDate = (isoString) => {

@@ -174,6 +174,9 @@
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import VueApexCharts from 'vue3-apexcharts'
+import { useNotificationStore } from '@/stores/notification'
+
+const notify = useNotificationStore()
 
 // State
 import Pagination from '@/components/ui/Pagination.vue'
@@ -362,7 +365,8 @@ const downloadExport = async (type) => {
         window.URL.revokeObjectURL(url)
     } catch (error) {
         console.error('Download failed:', error)
-        alert('Gagal mengunduh laporan')
+        const errorMessage = error.response?.data?.message || 'Gagal mengunduh laporan'
+        notify.error(errorMessage)
     } finally {
         isExporting.value = false
     }

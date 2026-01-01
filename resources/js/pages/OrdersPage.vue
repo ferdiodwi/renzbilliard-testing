@@ -1,18 +1,64 @@
 <template>
-  <div class="p-4 md:p-6 space-y-4 md:space-y-6">
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-      <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Riwayat Pesanan F&B</h1>
-      
-      <!-- Status Filter -->
-      <select 
-        v-model="statusFilter" 
-        @change="fetchOrders"
-        class="w-full sm:w-auto px-4 py-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-      >
-        <option value="">Semua Status</option>
-        <option value="pending">Pending</option>
-        <option value="completed">Completed</option>
-      </select>
+  <div class="p-4 md:p-6 space-y-6">
+    <!-- Header & Stats -->
+    <div class="space-y-4">
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Riwayat Transaksi F&B</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Lihat semua transaksi pembayaran billiard & F&B</p>
+      </div>
+
+      <!-- Stats Cards (Simplified for F&B context based on available data) -->
+      <!-- Note: Real calculation would need a separate API endpoint for totals across all pages -->
+      <!-- For now, we keep the layout ready or hide if no data -->
+    </div>
+
+    <!-- Controls -->
+    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <!-- Left: Rows Per Page -->
+      <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+        <span>Tampilkan</span>
+        <select 
+          v-model="perPage" 
+          @change="fetchOrders"
+          class="px-3 py-1.5 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand-500"
+        >
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+        </select>
+        <span>baris</span>
+      </div>
+
+      <!-- Right: Filter & Search -->
+      <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+        <!-- Status Filter -->
+        <select 
+          v-model="statusFilter" 
+          @change="fetchOrders"
+          class="w-full md:w-auto px-4 py-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand-500"
+        >
+          <option value="">Semua Status</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+        </select>
+        
+        <!-- Search Input -->
+        <div class="relative w-full md:w-96">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input 
+            v-model="search"
+            @input="debouncedFetch"
+            type="text"
+            placeholder="Cari invoice, pelanggan, atau kasir..."
+            class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Orders List -->
@@ -47,7 +93,7 @@
                 <p class="text-xs text-gray-500">{{ order.session.customer_name || 'Tamu' }}</p>
               </div>
               <div v-else>
-                <span class="font-medium">{{ order.customer_name || 'Walk-in Customer' }}</span>
+                <span class="font-medium">{{ order.customer_name || 'Pelanggan Umum' }}</span>
                 <p class="text-xs text-gray-500">Standalone</p>
               </div>
             </td>
@@ -81,10 +127,25 @@
               >
                 Bayar
               </button>
+              <button
+                @click="handleDeleteOrder(order.id)"
+                class="px-3 py-1 text-xs font-medium text-red-600 bg-red-100 rounded-lg hover:bg-red-200 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30 ml-2"
+              >
+                Hapus
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="mt-4">
+      <Pagination 
+        :links="pagination.links" 
+        :meta="pagination.meta" 
+        @page-change="handlePageChange" 
+      />
     </div>
 
     <!-- Order Details Dialog -->
@@ -114,7 +175,7 @@
           <div class="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
             <div>
               <p class="text-xs text-gray-500 dark:text-gray-400">Customer</p>
-              <p class="font-medium text-gray-900 dark:text-white">{{ selectedOrder.customer_name || (selectedOrder.session ? 'Tamu Meja' : 'Walk-in') }}</p>
+              <p class="font-medium text-gray-900 dark:text-white">{{ selectedOrder.customer_name || (selectedOrder.session ? 'Tamu Meja' : 'Pelanggan Umum') }}</p>
             </div>
             <div>
               <p class="text-xs text-gray-500 dark:text-gray-400">Kasir</p>
@@ -192,13 +253,32 @@ import { ref, onMounted, watch } from 'vue'
 import axios from 'axios'
 import PosPaymentDialog from '@/components/PosPaymentDialog.vue'
 import Pagination from '@/components/ui/Pagination.vue'
+import { useOrderStore } from '@/stores/order'
+import { useNotificationStore } from '@/stores/notification'
+import { useConfirmStore } from '@/stores/confirm'
+
+const notify = useNotificationStore()
+const confirm = useConfirmStore()
+
+const orderStore = useOrderStore()
 
 const orders = ref([])
 const pagination = ref({ links: [], meta: {} })
 const loading = ref(false)
 const selectedOrder = ref(null)
 const statusFilter = ref('')
+const search = ref('')
+const perPage = ref(10)
 const currentPage = ref(1)
+
+// Debounce Implementation
+let debounceTimer
+const debouncedFetch = () => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    fetchOrders(1)
+  }, 500)
+}
 
 // Payment State
 const showPayment = ref(false)
@@ -208,8 +288,12 @@ const fetchOrders = async (page = 1) => {
   loading.value = true
   currentPage.value = page
   try {
-    const params = { page }
+    const params = { 
+        page,
+        per_page: perPage.value
+    }
     if (statusFilter.value) params.status = statusFilter.value
+    if (search.value) params.search = search.value
     
     const response = await axios.get('/api/pos/orders', { params })
     orders.value = response.data.data || []
@@ -285,6 +369,32 @@ const handlePaymentSuccess = () => {
   showPayment.value = false
   paymentOrder.value = null
   fetchOrders() // Refresh list
+  orderStore.fetchPendingCount() // Sync sidebar badge
+}
+
+const handleDeleteOrder = async (id) => {
+    const confirmed = await confirm.show({
+        title: 'Hapus Order',
+        message: 'Apakah Anda yakin ingin menghapus order ini?',
+        confirmText: 'Hapus',
+        cancelText: 'Batal',
+        type: 'danger'
+    })
+    
+    if (!confirmed) return
+
+    try {
+        const response = await axios.delete(`/api/orders/${id}`)
+        if (response.data.success) {
+            notify.success('Order berhasil dihapus')
+            fetchOrders(currentPage.value)
+            orderStore.fetchPendingCount()
+        }
+    } catch (error) {
+        console.error('Failed to cancel order:', error)
+        const errorMessage = error.response?.data?.message || 'Gagal menghapus order'
+        notify.error(errorMessage)
+    }
 }
 
 const getStatusClass = (status) => {

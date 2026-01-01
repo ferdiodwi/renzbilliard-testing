@@ -112,6 +112,12 @@
                         >
                           Pro
                         </span>
+                        <span
+                          v-if="subItem.badge > 0"
+                          class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-white dark:ring-gray-900"
+                        >
+                          {{ subItem.badge }}
+                        </span>
                       </router-link>
                     </li>
                   </template>
@@ -128,10 +134,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
 import { useSidebar } from '@/composables/useSidebar'
 import { useAuthStore } from '@/stores/auth'
+import { useOrderStore } from '@/stores/order'
 import SidebarWidget from './SidebarWidget.vue'
 import {
   GridIcon,
@@ -160,8 +168,10 @@ const {
 } = useSidebar()
 const route = useRoute()
 const authStore = useAuthStore()
+const orderStore = useOrderStore()
+let pollingInterval = null
 
-const menuGroups = [
+const menuGroups = computed(() => [
   {
     name: 'MENU UTAMA',
     menuItems: [
@@ -178,6 +188,10 @@ const menuGroups = [
             {
                 name: 'Meja Biliar',
                 path: '/tables',
+            },
+            {
+                name: 'Booking Meja',
+                path: '/bookings',
             },
             {
                 name: 'Transaksi Biliar',
@@ -200,8 +214,14 @@ const menuGroups = [
                 adminOnly: true,
             },
             {
+                name: 'Kategori',
+                path: '/categories',
+                adminOnly: true,
+            },
+            {
                 name: 'Riwayat Pesanan',
                 path: '/orders',
+                badge: orderStore.pendingCount,
             },
         ]
       },
@@ -230,7 +250,11 @@ const menuGroups = [
       },
     ],
   },
-]
+])
+
+onMounted(() => {
+  orderStore.fetchPendingCount()
+})
 
 const isActive = (path) => route.path === path
 const isSubActive = (item) => {

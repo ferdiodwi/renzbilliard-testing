@@ -1,44 +1,58 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
 
-export const useNotificationStore = defineStore('notification', () => {
-    const notifications = ref([])
-    let nextId = 1
+let nextId = 1
 
-    const add = (message, type = 'success', duration = 3000) => {
-        const id = nextId++
-        notifications.value.push({
-            id,
-            message,
-            type,
-        })
+export const useNotificationStore = defineStore('notification', {
+    state: () => ({
+        notifications: []
+    }),
 
-        if (duration > 0) {
-            setTimeout(() => {
-                remove(id)
-            }, duration)
+    actions: {
+        success(message, title = 'Berhasil', duration = 4000) {
+            this.add({ type: 'success', message, title, duration })
+        },
+
+        error(message, title = 'Gagal', duration = 5000) {
+            this.add({ type: 'error', message, title, duration })
+        },
+
+        warning(message, title = 'Peringatan', duration = 4000) {
+            this.add({ type: 'warning', message, title, duration })
+        },
+
+        info(message, title = 'Informasi', duration = 4000) {
+            this.add({ type: 'info', message, title, duration })
+        },
+
+        add({ type, message, title, duration }) {
+            const id = nextId++
+            const notification = {
+                id,
+                type,
+                message,
+                title,
+                duration
+            }
+
+            this.notifications.push(notification)
+
+            // Auto-dismiss after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    this.remove(id)
+                }, duration)
+            }
+        },
+
+        remove(id) {
+            const index = this.notifications.findIndex(n => n.id === id)
+            if (index !== -1) {
+                this.notifications.splice(index, 1)
+            }
+        },
+
+        clear() {
+            this.notifications = []
         }
-    }
-
-    const remove = (id) => {
-        const index = notifications.value.findIndex(n => n.id === id)
-        if (index !== -1) {
-            notifications.value.splice(index, 1)
-        }
-    }
-
-    const success = (message, duration) => add(message, 'success', duration)
-    const error = (message, duration) => add(message, 'error', duration)
-    const info = (message, duration) => add(message, 'info', duration)
-    const warning = (message, duration) => add(message, 'warning', duration)
-
-    return {
-        notifications,
-        add,
-        remove,
-        success,
-        error,
-        info,
-        warning
     }
 })

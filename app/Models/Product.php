@@ -11,7 +11,7 @@ class Product extends Model
 
     protected $fillable = [
         'name',
-        'category',
+        'category_id',
         'price',
         'stock',
         'image',
@@ -20,8 +20,17 @@ class Product extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'category_id' => 'integer',
         'is_available' => 'boolean',
     ];
+
+    /**
+     * Get the category that owns the product.
+     */
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
 
     /**
      * Scope for available products
@@ -34,9 +43,9 @@ class Product extends Model
     /**
      * Scope by category
      */
-    public function scopeByCategory($query, $category)
+    public function scopeByCategory($query, $categoryId)
     {
-        return $query->where('category', $category);
+        return $query->where('category_id', $categoryId);
     }
 
     /**

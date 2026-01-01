@@ -76,10 +76,21 @@
               >
                 <div class="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden group-hover:shadow-sm transition-all">
                   <img 
-                    :src="getProductImage(product.category)" 
+                    :src="getProductImage(product)" 
                     :alt="product.name"
                     class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
+                  
+                  <!-- Stock Badge -->
+                  <div v-if="product.stock !== null" class="absolute top-2 left-2 px-2 py-1 text-[10px] font-bold text-white rounded-full shadow-sm z-10 border border-white/20 backdrop-blur-sm"
+                    :class="{
+                      'bg-red-500/90': product.stock <= 5,
+                      'bg-yellow-500/90': product.stock > 5 && product.stock <= 20,
+                      'bg-green-500/90': product.stock > 20
+                    }"
+                  >
+                    Stok {{ product.stock }}
+                  </div>
                   
                   <!-- Quantity Badge in Grid -->
                   <div v-if="getProductQtyInCart(product.id) > 0" class="absolute top-2 right-2 bg-brand-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-md z-10 border border-white dark:border-gray-800">
@@ -95,9 +106,7 @@
                   <span class="text-brand-600 dark:text-brand-400 font-bold">
                     Rp {{ formatCurrency(product.price) }}
                   </span>
-                  <span v-if="product.stock < 5" class="text-xs text-red-500 font-medium">
-                    Sisa {{ product.stock }}
-                  </span>
+
                 </div>
               </button>
             </div>
@@ -122,15 +131,26 @@
               <div v-for="item in cart" :key="item.product.id" class="flex gap-3">
                 <div class="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shrink-0">
                   <img 
-                    :src="getProductImage(item.product.category)" 
+                    :src="getProductImage(item.product)" 
                     :alt="item.product.name"
                     class="w-full h-full object-cover"
                   />
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h5 class="text-sm font-medium text-gray-800 dark:text-white truncate">
-                    {{ item.product.name }}
-                  </h5>
+                  <div class="flex justify-between items-start gap-2">
+                    <h5 class="text-sm font-medium text-gray-800 dark:text-white truncate" :title="item.product.name">
+                      {{ item.product.name }}
+                    </h5>
+                    <button 
+                      @click="removeFromCart(item.product.id)" 
+                      class="text-gray-400 hover:text-red-500 transition-colors p-0.5"
+                      title="Hapus item"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
                   <p class="text-xs text-brand-600 dark:text-brand-400 font-medium my-1">
                     Rp {{ formatCurrency(item.product.price * item.quantity) }}
                   </p>
@@ -283,6 +303,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
+import { useOrderStore } from '@/stores/order'
 import { useNotificationStore } from '@/stores/notification'
 
 const notify = useNotificationStore()
@@ -293,9 +314,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'success'])
+const orderStore = useOrderStore()
 
 // State
 const products = ref([])
+const apiCategories = ref([])
 const cart = ref([])
 const loading = ref(false)
 const submitting = ref(false)
@@ -303,14 +326,25 @@ const search = ref('')
 const selectedCategory = ref('all')
 const showMobileCart = ref(false)
 
-const categories = [
-  { label: 'Semua', value: 'all' },
-  { label: 'Makanan', value: 'makanan' },
-  { label: 'Minuman', value: 'minuman' },
-  { label: 'Snack', value: 'snack' },
-]
+const categories = computed(() => {
+  const cats = [{ label: 'Semua', value: 'all' }]
+  apiCategories.value.forEach(cat => {
+    cats.push({ label: cat.name, value: cat.id })
+  })
+  return cats
+})
 
 // Methods
+const fetchCategories = async () => {
+  try {
+    const response = await axios.get('/api/categories')
+    apiCategories.value = response.data.data || []
+  } catch (error) {
+    console.error('Failed to fetch categories:', error)
+    apiCategories.value = []
+  }
+}
+
 const fetchProducts = async () => {
   loading.value = true
   try {
@@ -328,7 +362,7 @@ const fetchProducts = async () => {
 const filteredProducts = computed(() => {
   return products.value.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(search.value.toLowerCase())
-    const matchesCategory = selectedCategory.value === 'all' || product.category === selectedCategory.value
+    const matchesCategory = selectedCategory.value === 'all' || product.category_id === selectedCategory.value
     return matchesSearch && matchesCategory
   })
 })
@@ -338,11 +372,17 @@ const addToCart = (product) => {
   
   if (existingItem) {
     // Check stock
-    if (existingItem.quantity >= product.stock) return
+    if (product.stock !== null && existingItem.quantity >= product.stock) {
+        notify.warning(`Stok ${product.name} hanya tersisa ${product.stock} item`)
+        return
+    }
     existingItem.quantity++
   } else {
     // Check stock
-    if (product.stock < 1) return
+    if (product.stock !== null && product.stock < 1) {
+        notify.warning(`${product.name} sedang habis`)
+        return
+    }
     cart.value.push({
       product,
       quantity: 1
@@ -358,6 +398,13 @@ const decreaseQty = (item) => {
     if (index > -1) {
       cart.value.splice(index, 1)
     }
+  }
+}
+
+const removeFromCart = (productId) => {
+  const index = cart.value.findIndex(item => item.product.id === productId)
+  if (index > -1) {
+    cart.value.splice(index, 1)
   }
 }
 
@@ -381,11 +428,19 @@ const getProductEmoji = (category) => {
   }
 }
 
-const getProductImage = (category) => {
+const getProductImage = (product) => {
+  // Use product's custom image if available
+  if (product?.image) {
+    return `/images/products/${product.image}`
+  }
+  
+  // Fallback to category default
+  const category = product?.category?.name?.toLowerCase()
   switch(category) {
     case 'makanan': return '/images/product/custom-food.jpg'
     case 'minuman': return '/images/product/custom-drink.jpg'
     case 'snack': return '/images/product/custom-snack.jpg'
+    case 'glove': return '/images/product/glove.jpg'
     default: return '/images/product/product-04.jpg'
   }
 }
@@ -411,6 +466,7 @@ const submitOrder = async () => {
     
     await axios.post(`/api/sessions/${props.session.id}/order`, { items })
     
+    orderStore.fetchPendingCount() // Update badge count
     notify.success('Pesanan berhasil ditambahkan')
     emit('success')
     closeDialog()
@@ -424,12 +480,14 @@ const submitOrder = async () => {
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
+    fetchCategories()
     fetchProducts()
   }
 })
 
 onMounted(() => {
   if (props.show) {
+    fetchCategories()
     fetchProducts()
   }
 })

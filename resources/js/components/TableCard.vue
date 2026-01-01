@@ -61,6 +61,14 @@
             {{ table.status === 'available' ? 'Tersedia' : table.status === 'playing' ? 'Sedang Bermain' : 'Maintenance' }}
           </span>
           
+          <!-- Open Billing Badge -->
+          <span
+            v-if="table.status === 'playing' && table.active_session?.is_open_billing"
+            class="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 flex items-center gap-1"
+          >
+            🔓 OPEN
+          </span>
+          
           <!-- Three Dot Menu for Admin -->
           <div v-if="showAdminActions" class="relative">
             <button
@@ -136,16 +144,22 @@
 
         <!-- Playing State -->
         <div v-else-if="table.status === 'playing'" class="space-y-1.5">
-          <!-- Large Countdown Timer -->
+          <!-- Timer Display -->
           <div class="p-2 text-center rounded-lg bg-gray-50 dark:bg-gray-900">
             <p class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-              WAKTU TERSISA
+              {{ table.active_session.is_open_billing ? 'WAKTU BERJALAN ↑' : 'WAKTU TERSISA' }}
             </p>
-            <div class="text-2xl font-bold tabular-nums" :class="getTimerColor(table.active_session.remaining_seconds)">
-              {{ formatTime(table.active_session.remaining_seconds) }}
+            <div 
+              class="text-2xl font-bold tabular-nums" 
+              :class="table.active_session.is_open_billing ? 'text-amber-600 dark:text-amber-400' : getTimerColor(table.active_session.remaining_seconds)"
+            >
+              {{ table.active_session.is_open_billing ? formatElapsedTimeSeconds(elapsedSeconds) : formatTime(table.active_session.remaining_seconds) }}
             </div>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p v-if="!table.active_session.is_open_billing" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Berakhir: {{ formatEndTime(table.active_session.end_time) }}
+            </p>
+            <p v-else class="mt-1 text-xs text-amber-600 dark:text-amber-500 font-medium">
+              Unlimited - Berhenti kapan saja
             </p>
           </div>
 
@@ -158,7 +172,7 @@
               </span>
             </div>
             
-            <div class="flex items-center justify-between text-sm">
+            <div v-if="!table.active_session.is_open_billing" class="flex items-center justify-between text-sm">
               <span class="text-gray-600 dark:text-gray-400">Durasi</span>
               <span class="font-medium text-gray-800 dark:text-white">
                 {{ table.active_session.duration_minutes }} menit
@@ -178,11 +192,24 @@
             </div>
             
             <div class="flex items-center justify-between pt-2 mt-1 border-t border-dashed border-gray-300 dark:border-gray-600">
-              <span class="font-bold text-gray-700 dark:text-gray-300">Total Bayar</span>
-              <span class="text-lg font-bold text-brand-600 dark:text-brand-400">
-                Rp {{ formatCurrency(table.active_session.total_price) }}
+              <span class="font-bold text-gray-700 dark:text-gray-300">
+                {{ table.active_session.is_open_billing ? 'Est. Bayar' : 'Total Bayar' }}
               </span>
+              <div class="flex items-center gap-2">
+                <span v-if="table.active_session.is_paid" class="px-2 py-0.5 text-xs font-bold text-green-700 bg-green-100 rounded-full dark:bg-green-500/20 dark:text-green-400">
+                  LUNAS
+                </span>
+                <span 
+                    class="text-lg font-bold"
+                    :class="table.active_session.is_paid ? 'text-gray-400 line-through text-sm' : 'text-brand-600 dark:text-brand-400'"
+                >
+                    Rp {{ formatCurrency(currentPriceEstimate) }}
+                </span>
+              </div>
             </div>
+            <p v-if="table.active_session.is_open_billing" class="text-xs text-center text-amber-600 dark:text-amber-500 italic">
+              *Estimasi, update real-time
+            </p>
           </div>
         </div>
       </div>
@@ -205,15 +232,19 @@
 
       <!-- Playing Table Actions -->
       <div v-else-if="table.status === 'playing'" class="space-y-2">
+        <!-- Order F&B - Hidden for prepaid sessions -->
         <button
+          v-if="!table.active_session?.is_paid"
           @click="$emit('order', table)"
           class="w-full px-3 py-2 text-sm font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100 transition flex items-center justify-center gap-2 dark:bg-brand-900/20 dark:border-brand-800 dark:text-brand-300 dark:hover:bg-brand-900/40"
         >
-          <span class="text-base">🍔</span> Order F&B
+          <span class="text-base">🍔</span> Pesan Makanan/Minuman
         </button>
         
         <div class="flex gap-2">
+          <!-- Hide Extend for Open Billing AND Prepaid sessions -->
           <button
+            v-if="!table.active_session?.is_open_billing && !table.active_session?.is_paid"
             @click="$emit('extend', table)"
             class="flex-1 px-2 py-1.5 text-sm font-medium text-white transition rounded-lg bg-brand-500 hover:bg-brand-600"
           >
@@ -221,7 +252,8 @@
           </button>
           <button
             @click="$emit('stop', table)"
-            class="flex-1 px-2 py-1.5 text-sm font-medium text-white transition rounded-lg bg-red-500 hover:bg-red-600"
+            :class="table.active_session?.is_open_billing || (!table.active_session?.is_paid && table.active_session?.is_open_billing) ? 'w-full' : 'flex-1'"
+            class="px-2 py-1.5 text-sm font-medium text-white transition rounded-lg bg-red-500 hover:bg-red-600"
           >
             Stop & Bayar
           </button>
@@ -234,7 +266,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps({
@@ -250,6 +282,31 @@ const authStore = useAuthStore()
 const isMenuOpen = ref(false)
 
 const showAdminActions = computed(() => authStore.isAdmin)
+
+// Real-time price estimate for open billing
+const currentPriceEstimate = computed(() => {
+  if (!props.table?.active_session) {
+    return 0
+  }
+  
+  if (props.table.active_session.is_open_billing) {
+    // Open billing: Calculate billiard price + F&B
+    const elapsedMinutes = Math.floor(elapsedSeconds.value / 60)
+    
+    // Minimum 2 hours (120 minutes) charge for open billing
+    const chargeableMinutes = Math.max(120, elapsedMinutes)
+    
+    const pricePerHour = props.table.active_session.rate.price_per_hour
+    const pricePerMinute = pricePerHour / 60
+    const billiardPrice = Math.round(pricePerMinute * chargeableMinutes)
+    const fnbTotal = props.table.active_session.fnb_total || 0
+    
+    return billiardPrice + fnbTotal
+  }
+  
+  // Closed billing: total_price from backend already includes session + F&B
+  return props.table.active_session.total_price || 0
+})
 
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
@@ -323,4 +380,49 @@ const getTimerColor = (seconds) => {
   if (seconds <= 600) return 'text-warning-600 dark:text-warning-400' // 10 minutes
   return 'text-brand-600 dark:text-brand-400'
 }
+
+const formatElapsedTime = (minutes) => {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}:${mins.toString().padStart(2, '0')}:00`
+}
+
+const formatElapsedTimeSeconds = (totalSeconds) => {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
+// Reactive elapsed seconds for open billing
+const currentTime = ref(Date.now())
+let timerInterval = null
+
+// Computed elapsed seconds based on start_time and current client time
+const elapsedSeconds = computed(() => {
+  if (!props.table?.active_session?.is_open_billing) {
+    return 0
+  }
+  
+  // Parse start_time from server
+  const startTime = new Date(props.table.active_session.start_time)
+  const startSeconds = Math.floor(startTime.getTime() / 1000)
+  const now = Math.floor(currentTime.value / 1000)
+  
+  // Calculate client-side elapsed
+  return now - startSeconds
+})
+
+// Start timer for real-time updates
+onMounted(() => {
+  timerInterval = setInterval(() => {
+    currentTime.value = Date.now()
+  }, 1000) // Update every second
+})
+
+onUnmounted(() => {
+  if (timerInterval) {
+    clearInterval(timerInterval)
+  }
+})
 </script>
