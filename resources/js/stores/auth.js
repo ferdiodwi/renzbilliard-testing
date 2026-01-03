@@ -83,10 +83,7 @@ export const useAuthStore = defineStore('auth', {
                     return { success: true };
                 }
             } catch (error) {
-                return {
-                    success: false,
-                    message: error.response?.data?.message || 'Login gagal',
-                };
+                throw error;
             }
         },
 

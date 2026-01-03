@@ -102,8 +102,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/orders/{id}/pay', [PosController::class, 'payOrder']);
     });
 
-    // General Order Management
-    Route::delete('/orders/{id}', [\App\Http\Controllers\Api\OrderController::class, 'destroy']);
+    // General Order Management (admin only)
+    Route::middleware('permission:delete-orders')->delete('/orders/{id}', [\App\Http\Controllers\Api\OrderController::class, 'destroy']);
 
     // Expenses (all authenticated users)
     Route::get('/expenses', [\App\Http\Controllers\Api\ExpenseController::class, 'index']);
@@ -116,7 +116,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/income', [\App\Http\Controllers\Api\IncomeController::class, 'index']);
     
     // Admin Delete Transaction
-    Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy']);
+    Route::middleware('permission:delete-transactions')->delete('/transactions/{transaction}', [TransactionController::class, 'destroy']);
 
     // User Management (permission-based)
     Route::middleware('permission:view-users')->get('/users', [UserController::class, 'index']);

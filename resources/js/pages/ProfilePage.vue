@@ -134,7 +134,7 @@ const loadProfile = () => {
 
 const handleUpdateProfile = async () => {
   if (form.value.password && form.value.password !== form.value.password_confirmation) {
-    notify.warning('Password confirmation does not match')
+    notify.warning('Konfirmasi password tidak cocok')
     return
   }
 
@@ -157,11 +157,11 @@ const handleUpdateProfile = async () => {
       authStore.user = response.data.data.user
       localStorage.setItem('user', JSON.stringify(response.data.data.user))
       
-      notify.success('Profile updated successfully!')
+      notify.success('Profil berhasil diperbarui!')
       resetForm()
     }
   } catch (error) {
-    notify.error(error.response?.data?.message || 'Failed to update profile')
+    notify.error(error.response?.data?.message || 'Gagal memperbarui profil')
   } finally {
     loading.value = false
   }

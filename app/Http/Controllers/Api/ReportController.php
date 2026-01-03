@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Expense;
 use App\Models\SessionBilliard;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
@@ -60,12 +61,34 @@ class ReportController extends Controller
             ? Carbon::parse($request->query('end_date'))->endOfDay() 
             : Carbon::now()->endOfDay();
 
-        // 1. Summary Stats
+        // 1. Income Summary (from Transactions)
         $totalRevenue = Transaction::whereBetween('paid_at', [$startDate, $endDate])->sum('total_amount');
         $totalSessions = SessionBilliard::whereBetween('start_time', [$startDate, $endDate])->count();
         $totalTransactions = Transaction::whereBetween('paid_at', [$startDate, $endDate])->count();
 
-        // 2. Daily Chart Data
+        // 2. Expense Summary
+        $totalExpenses = Expense::whereBetween('expense_date', [
+            $startDate->toDateString(), 
+            $endDate->toDateString()
+        ])->sum('amount');
+        
+        $expenseCount = Expense::whereBetween('expense_date', [
+            $startDate->toDateString(), 
+            $endDate->toDateString()
+        ])->count();
+
+        // Expense by category
+        $expenseByCategory = Expense::select('category', DB::raw('SUM(amount) as total'))
+            ->whereBetween('expense_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->groupBy('category')
+            ->get()
+            ->pluck('total', 'category')
+            ->toArray();
+
+        // 3. Profit/Loss
+        $netProfit = $totalRevenue - $totalExpenses;
+
+        // 4. Daily Chart Data
         $transactions = Transaction::select(
             DB::raw("DATE_FORMAT(paid_at, '%Y-%m-%d') as date"),
             DB::raw('SUM(total_amount) as total')
@@ -75,46 +98,86 @@ class ReportController extends Controller
             ->get()
             ->keyBy('date');
 
+        $expenseChart = Expense::select(
+            'expense_date as date',
+            DB::raw('SUM(amount) as total')
+        )
+            ->whereBetween('expense_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->groupBy('expense_date')
+            ->get()
+            ->keyBy('date');
+
         $chartData = [];
         $current = $startDate->copy();
         while ($current <= $endDate) {
             $key = $current->format('Y-m-d');
+            $income = (float) ($transactions[$key]->total ?? 0);
+            $expense = (float) ($expenseChart[$key]->total ?? 0);
             $chartData[] = [
                 'date' => $key,
                 'label' => $current->format('d M'),
-                'revenue' => (float) ($transactions[$key]->total ?? 0),
+                'income' => $income,
+                'expense' => $expense,
+                'profit' => $income - $expense,
             ];
             $current->addDay();
         }
 
-        // 3. Transactions List
-        $recentTransactions = Transaction::with('cashier')
-            ->whereBetween('paid_at', [$startDate, $endDate])
-            ->latest('paid_at')
-            ->paginate(10);
-
-        // 4. Revenue Breakdown (Billiard vs FnB)
+        // 5. Transactions List (removed - replaced with separated items below)
+        
+        // 6. Revenue Breakdown (Billiard vs FnB)
         $revenueByCategory = [
             'billiard' => 0,
             'fnb' => 0
         ];
         
-        // Sum items linked to transactions in range
-        $items = TransactionItem::whereHas('transaction', function($q) use ($startDate, $endDate) {
-            $q->whereBetween('paid_at', [$startDate, $endDate]);
-        })->get();
+        // Get Billiard items (type = 'session')
+        $billiardItems = TransactionItem::with(['transaction.cashier', 'session.table'])
+            ->where('type', 'session')
+            ->whereHas('transaction', function($q) use ($startDate, $endDate) {
+                $q->whereBetween('paid_at', [$startDate, $endDate]);
+            })
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'date' => $item->transaction->paid_at,
+                    'invoice' => $item->transaction->invoice_number,
+                    'description' => 'Meja ' . ($item->session->table->table_number ?? '?'),
+                    'customer' => $item->session->customer_name ?? '-',
+                    'payment_method' => $item->transaction->payment_method,
+                    'cashier' => $item->transaction->cashier->name ?? '-',
+                    'amount' => $item->price,
+                ];
+            });
 
-        foreach ($items as $item) {
-            // Check based on type or product_id to ensure F&B ordered during session counts as F&B
-            if ($item->type === 'product' || $item->product_id) {
-                $revenueByCategory['fnb'] += $item->price;
-            } else {
-                // Otherwise it's the table rental fee
-                $revenueByCategory['billiard'] += $item->price;
-            }
-        }
+        // Get F&B items (type = 'product')
+        $fnbItems = TransactionItem::with(['transaction.cashier', 'product', 'session'])
+            ->where('type', 'product')
+            ->whereHas('transaction', function($q) use ($startDate, $endDate) {
+                $q->whereBetween('paid_at', [$startDate, $endDate]);
+            })
+            ->get()
+            ->map(function($item) {
+                $qty = $item->quantity ?? 1;
+                $date = $item->transaction->paid_at->format('Ymd');
+                return [
+                    'id' => $item->id,
+                    'date' => $item->transaction->paid_at,
+                    'invoice' => sprintf('FNB-%s-%04d', $date, $item->id),
+                    'description' => ($item->product->name ?? 'Produk') . ' x' . $qty,
+                    'customer' => $item->session->customer_name ?? '-',
+                    'payment_method' => $item->transaction->payment_method,
+                    'cashier' => $item->transaction->cashier->name ?? '-',
+                    'amount' => $item->price,
+                ];
+            });
 
-        // 5. Payment Method Stats
+        // Calculate totals from items
+        $revenueByCategory['billiard'] = $billiardItems->sum('amount');
+        $revenueByCategory['fnb'] = $fnbItems->sum('amount');
+
+        // 7. Payment Method Stats
         $paymentStats = Transaction::select('payment_method', DB::raw('count(*) as count'), DB::raw('sum(total_amount) as total'))
             ->whereBetween('paid_at', [$startDate, $endDate])
             ->groupBy('payment_method')
@@ -123,12 +186,19 @@ class ReportController extends Controller
         return [
             'summary' => [
                 'revenue' => $totalRevenue,
+                'expenses' => $totalExpenses,
+                'profit' => $netProfit,
                 'sessions' => $totalSessions,
                 'transactions' => $totalTransactions,
+                'expense_count' => $expenseCount,
+                'billiard_count' => $billiardItems->count(),
+                'fnb_count' => $fnbItems->count(),
             ],
             'chart' => $chartData,
-            'transactions' => $recentTransactions,
+            'billiard_items' => $billiardItems->values(),
+            'fnb_items' => $fnbItems->values(),
             'breakdown' => $revenueByCategory,
+            'expense_breakdown' => $expenseByCategory,
             'payment_methods' => $paymentStats,
             'period' => [
                 'start' => $startDate->toDateString(),
@@ -140,26 +210,73 @@ class ReportController extends Controller
     private function exportCsv($data, $fileName)
     {
         $headers = [
-            "Content-type"        => "text/csv",
+            "Content-type"        => "text/csv; charset=UTF-8",
             "Content-Disposition" => "attachment; filename={$fileName}.csv",
             "Pragma"              => "no-cache",
             "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
             "Expires"             => "0"
         ];
 
-        $columns = ['Tanggal', 'Invoice', 'Kasir', 'Metode Bayar', 'Total'];
-
-        $callback = function() use ($data, $columns) {
+        $callback = function() use ($data) {
             $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
-
-            foreach ($data['transactions'] as $tx) {
+            
+            // UTF-8 BOM for Excel compatibility
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Summary Section
+            fputcsv($file, ['=== RINGKASAN LAPORAN ===']);
+            fputcsv($file, ['Periode', $data['period']['start'] . ' s/d ' . $data['period']['end']]);
+            fputcsv($file, []);
+            fputcsv($file, ['Total Pemasukan', 'Rp ' . number_format($data['summary']['revenue'], 0, ',', '.')]);
+            fputcsv($file, ['Total Pengeluaran', 'Rp ' . number_format($data['summary']['expenses'], 0, ',', '.')]);
+            fputcsv($file, ['Laba Bersih', 'Rp ' . number_format($data['summary']['profit'], 0, ',', '.')]);
+            fputcsv($file, []);
+            
+            // Income Breakdown
+            fputcsv($file, ['=== SUMBER PENDAPATAN ===']);
+            fputcsv($file, ['Billiard', 'Rp ' . number_format($data['breakdown']['billiard'], 0, ',', '.')]);
+            fputcsv($file, ['F&B', 'Rp ' . number_format($data['breakdown']['fnb'], 0, ',', '.')]);
+            fputcsv($file, []);
+            
+            // Expense Breakdown
+            fputcsv($file, ['=== KATEGORI PENGELUARAN ===']);
+            $categoryLabels = [
+                'operasional' => 'Operasional',
+                'gaji' => 'Gaji',
+                'pembelian_stok' => 'Pembelian Stok',
+                'lainnya' => 'Lainnya'
+            ];
+            foreach ($data['expense_breakdown'] as $category => $amount) {
+                fputcsv($file, [$categoryLabels[$category] ?? $category, 'Rp ' . number_format($amount, 0, ',', '.')]);
+            }
+            fputcsv($file, []);
+            
+            // Billiard Transactions
+            fputcsv($file, ['=== TRANSAKSI BILLIARD ===']);
+            fputcsv($file, ['No', 'Tanggal', 'Invoice', 'Meja', 'Jumlah']);
+            
+            foreach ($data['billiard_items'] as $index => $item) {
                 fputcsv($file, [
-                    $tx->paid_at->format('Y-m-d H:i'),
-                    $tx->invoice_number,
-                    $tx->cashier->name ?? '-',
-                    $tx->payment_method,
-                    $tx->total_amount
+                    $index + 1,
+                    $item['date']->format('Y-m-d H:i'),
+                    $item['invoice'],
+                    $item['description'],
+                    'Rp ' . number_format($item['amount'], 0, ',', '.')
+                ]);
+            }
+            fputcsv($file, []);
+
+            // F&B Transactions
+            fputcsv($file, ['=== TRANSAKSI F&B ===']);
+            fputcsv($file, ['No', 'Tanggal', 'Invoice', 'Item', 'Jumlah']);
+            
+            foreach ($data['fnb_items'] as $index => $item) {
+                fputcsv($file, [
+                    $index + 1,
+                    $item['date']->format('Y-m-d H:i'),
+                    $item['invoice'],
+                    $item['description'],
+                    'Rp ' . number_format($item['amount'], 0, ',', '.')
                 ]);
             }
 

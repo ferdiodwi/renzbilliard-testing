@@ -8,7 +8,7 @@ export function useSidebarProvider() {
     const isMobile = ref(false)
     const isHovered = ref(false)
     const activeItem = ref(null)
-    const openSubmenu = ref(['Operasional Biliar', 'F&B', 'Pengaturan'])
+    const openSubmenu = ref(['Operasional Biliar', 'F&B', 'Keuangan', 'Pengaturan'])
 
     const handleResize = () => {
         const mobile = window.innerWidth < 1024 // Changed from 768 to 1024

@@ -145,7 +145,7 @@
                   Detail
                 </button>
                 <button
-                  v-if="transaction.status !== 'unpaid'"
+                  v-if="transaction.status !== 'unpaid' && authStore.isAdmin"
                   @click="handleDeleteTransaction(transaction.id)"
                   class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 transition rounded-lg hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 ml-2"
                 >
@@ -182,9 +182,11 @@ import TransactionDetailDialog from '@/components/TransactionDetailDialog.vue'
 import Pagination from '@/components/ui/Pagination.vue'
 import { useNotificationStore } from '@/stores/notification'
 import { useConfirmStore } from '@/stores/confirm'
+import { useAuthStore } from '@/stores/auth'
 
 const notify = useNotificationStore()
 const confirm = useConfirmStore()
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const transactions = ref([])

@@ -92,9 +92,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notification'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const notify = useNotificationStore()
 
 const form = ref({
   username: '',
@@ -111,9 +113,12 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(form.value.username, form.value.password)
+    notify.success('Login berhasil! Selamat datang.')
     router.push('/')
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Login failed. Please check your credentials.'
+    const errorMsg = error.response?.data?.message || 'Login gagal. Periksa username dan password Anda.'
+    errorMessage.value = errorMsg
+    notify.error(errorMsg)
   } finally {
     loading.value = false
   }

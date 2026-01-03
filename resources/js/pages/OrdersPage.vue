@@ -128,6 +128,7 @@
                 Bayar
               </button>
               <button
+                v-if="authStore.isAdmin"
                 @click="handleDeleteOrder(order.id)"
                 class="px-3 py-1 text-xs font-medium text-red-600 bg-red-100 rounded-lg hover:bg-red-200 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30 ml-2"
               >
@@ -244,9 +245,11 @@ import Pagination from '@/components/ui/Pagination.vue'
 import { useOrderStore } from '@/stores/order'
 import { useNotificationStore } from '@/stores/notification'
 import { useConfirmStore } from '@/stores/confirm'
+import { useAuthStore } from '@/stores/auth'
 
 const notify = useNotificationStore()
 const confirm = useConfirmStore()
+const authStore = useAuthStore()
 
 const orderStore = useOrderStore()
 

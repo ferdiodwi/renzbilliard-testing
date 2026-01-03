@@ -199,18 +199,18 @@ const handleSubmit = async () => {
     if (editingUser.value) {
       // Update
       await axios.put(`/api/users/${editingUser.value.id}`, form.value)
-      notify.success('User updated successfully!')
+      notify.success('User berhasil diperbarui!')
     } else {
       // Create
       await axios.post('/api/users', form.value)
-      notify.success('User created successfully!')
+      notify.success('User berhasil dibuat!')
     }
     
     showDialog.value = false
     resetForm()
     fetchUsers()
   } catch (error) {
-    notify.error(error.response?.data?.message || 'Failed to save user')
+    notify.error(error.response?.data?.message || 'Gagal menyimpan user')
   } finally {
     loading.value = false
   }
@@ -218,9 +218,9 @@ const handleSubmit = async () => {
 
 const handleDelete = async (user) => {
   const confirmed = await confirm.show({
-    title: 'Delete User',
-    message: `Are you sure you want to delete ${user.name}?`,
-    confirmText: 'Delete',
+    title: 'Hapus User',
+    message: `Apakah Anda yakin ingin menghapus user ${user.name}?`,
+    confirmText: 'Hapus',
     type: 'danger'
   })
 
@@ -228,10 +228,10 @@ const handleDelete = async (user) => {
 
   try {
     await axios.delete(`/api/users/${user.id}`)
-    notify.success('User deleted successfully!')
+    notify.success('User berhasil dihapus!')
     fetchUsers()
   } catch (error) {
-    notify.error(error.response?.data?.message || 'Failed to delete user')
+    notify.error(error.response?.data?.message || 'Gagal menghapus user')
   }
 }
 

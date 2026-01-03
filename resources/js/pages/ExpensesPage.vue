@@ -315,12 +315,20 @@ const categoryFilter = ref('')
 const search = ref('')
 const currentPage = ref(1)
 
+// Helper for local date
+const formatDateLocal = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const form = ref({
   description: '',
   amount: null,
-  category: 'lainnya',
+  category: 'operasional', // Changed default to operasional as it is safer
   payment_method: 'cash',
-  expense_date: new Date().toISOString().split('T')[0],
+  expense_date: formatDateLocal(new Date()),
   notes: '',
 })
 
@@ -379,9 +387,9 @@ const openDialog = (expense = null) => {
     form.value = {
       description: '',
       amount: null,
-      category: 'lainnya',
+      category: 'operasional',
       payment_method: 'cash',
-      expense_date: new Date().toISOString().split('T')[0],
+      expense_date: formatDateLocal(new Date()),
       notes: '',
     }
   }

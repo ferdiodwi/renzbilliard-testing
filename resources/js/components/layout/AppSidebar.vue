@@ -195,7 +195,7 @@ const menuGroups = computed(() => [
                 path: '/bookings',
             },
             {
-                name: 'Transaksi Biliar',
+                name: 'Riwayat Biliar',
                 path: '/transactions',
             },
         ]
@@ -206,7 +206,7 @@ const menuGroups = computed(() => [
         path: '/pos',
         children: [
             {
-                name: 'Kasir F&B',
+                name: 'Pesan Makan/Minum',
                 path: '/pos',
             },
             {

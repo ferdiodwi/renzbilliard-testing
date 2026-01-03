@@ -29,6 +29,10 @@ return [
         // Transactions
         'view-all-transactions',
         'create-transactions',
+        'delete-transactions',
+        
+        // Orders
+        'delete-orders',
         
         // Products
         'view-products',
