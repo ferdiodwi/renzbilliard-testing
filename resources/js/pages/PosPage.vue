@@ -258,14 +258,7 @@
           </div>
 
           <div v-else class="space-y-4">
-            <div v-for="item in cart" :key="item.product_id" class="flex gap-3 group">
-              <div class="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shrink-0">
-                <img 
-                  :src="getProductImage(item.category)" 
-                  :alt="item.name"
-                  class="w-full h-full object-cover"
-                />
-              </div>
+            <div v-for="item in cart" :key="item.product_id" class="flex gap-3 group border-b border-gray-100 dark:border-gray-700 pb-3">
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start">
                   <h5 class="font-medium text-sm text-gray-800 dark:text-white truncate pr-2">{{ item.name }}</h5>
@@ -347,8 +340,8 @@
     <!-- Payment Dialog -->
     <PosPaymentDialog
       :show="showPaymentDialog"
-      :order="createdOrder"
-      @close="showPaymentDialog = false"
+      :cartData="pendingCartData"
+      @close="handlePaymentClose"
       @success="handlePaymentSuccess"
     />
   </div>
@@ -375,7 +368,7 @@ const search = ref('')
 const selectedCategory = ref('all')
 const customerName = ref('')
 const showPaymentDialog = ref(false)
-const createdOrder = ref(null)
+const pendingCartData = ref(null)
 const showMobileCart = ref(false)
 
 const categories = computed(() => {
@@ -571,16 +564,20 @@ const createOrder = async () => {
 }
 
 const checkoutPayNow = async () => {
-  loading.value = true
-  try {
-    const order = await createOrder()
-    createdOrder.value = order
-    showPaymentDialog.value = true
-  } catch (error) {
-    notify.error(error.response?.data?.message || 'Gagal memproses pesanan')
-  } finally {
-    loading.value = false
+  // Don't create order yet, just pass cart data to payment dialog
+  pendingCartData.value = {
+    customer_name: customerName.value || null,
+    items: cart.value.map(item => ({
+      product_id: item.product_id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      subtotal: item.price * item.quantity
+    })),
+    total: total.value
   }
+  showPaymentDialog.value = true
+  showMobileCart.value = false
 }
 
 const checkoutPayLater = async () => {
@@ -607,9 +604,18 @@ const checkoutPayLater = async () => {
 
 const handlePaymentSuccess = () => {
     showPaymentDialog.value = false
-    createdOrder.value = null
-    // Refresh pending orders count (in case pay now makes it completed, or cancelled/failed leaves it pending)
+    pendingCartData.value = null
+    // Clear cart after successful payment
+    cart.value = []
+    customerName.value = ''
+    // Refresh pending orders count and products
     orderStore.fetchPendingCount()
+    fetchProducts()
+}
+
+const handlePaymentClose = () => {
+    showPaymentDialog.value = false
+    // Don't clear pendingCartData so user can retry
 }
 
 onMounted(() => {

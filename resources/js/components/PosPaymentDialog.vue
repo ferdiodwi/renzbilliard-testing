@@ -1,15 +1,15 @@
 <template>
   <div
     v-if="show"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50"
     @click.self="closeDialog"
   >
-    <div class="w-full max-w-md overflow-hidden bg-white shadow-2xl rounded-2xl dark:bg-gray-800">
+    <div class="w-full sm:max-w-md max-h-[90vh] overflow-hidden bg-white shadow-2xl rounded-t-2xl sm:rounded-2xl dark:bg-gray-800 flex flex-col">
       <!-- Header -->
-      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
         <div class="flex items-center justify-between">
           <h3 class="text-xl font-semibold text-gray-800 dark:text-white">
-            Pembayaran Order #{{ order?.order_number }}
+            Pembayaran Pesanan
           </h3>
           <button
             @click="closeDialog"
@@ -23,20 +23,28 @@
       </div>
 
       <!-- Body -->
-      <div class="px-6 py-4 space-y-4">
+      <div class="px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
         <!-- Order Summary -->
-        <div v-if="order" class="space-y-4">
+        <div v-if="cartData" class="space-y-4">
+          <!-- Order Items Detail -->
           <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
-            <h4 class="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Ringkasan Order</h4>
-            <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">Customer</span>
-                    <span class="font-medium text-gray-800 dark:text-white">{{ order.customer_name || 'Pelanggan Umum' }}</span>
+            <h4 class="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Detail Pesanan</h4>
+            <div class="space-y-2 max-h-40 overflow-y-auto pr-2">
+              <div v-for="(item, index) in cartData.items" :key="index" class="flex justify-between text-sm">
+                <div class="flex-1">
+                  <span class="text-gray-800 dark:text-white">{{ item.name }}</span>
+                  <span class="ml-2 text-gray-500 dark:text-gray-400">×{{ item.quantity }}</span>
                 </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-600 dark:text-gray-400">Total Item</span>
-                    <span class="font-medium text-gray-800 dark:text-white">{{ order.items?.length || 0 }} items</span>
-                </div>
+                <span class="font-medium text-gray-800 dark:text-white">
+                  Rp {{ formatCurrency(item.subtotal) }}
+                </span>
+              </div>
+            </div>
+            <div class="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+              <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>Customer</span>
+                <span>{{ cartData.customer_name || 'Pelanggan Umum' }}</span>
+              </div>
             </div>
           </div>
 
@@ -45,7 +53,7 @@
             <div class="flex justify-between items-center">
               <span class="text-lg font-bold text-gray-800 dark:text-white">TOTAL BAYAR</span>
               <span class="text-2xl font-bold text-brand-600 dark:text-brand-400">
-                Rp {{ formatCurrency(order.total) }}
+                Rp {{ formatCurrency(cartData.total) }}
               </span>
             </div>
           </div>
@@ -56,7 +64,7 @@
           <label class="block mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
             Metode Pembayaran<span class="text-red-500">*</span>
           </label>
-          <div class="grid grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 gap-3">
             <button
               v-for="method in paymentMethods"
               :key="method.value"
@@ -82,19 +90,19 @@
               Uang Dibayar
             </label>
             <input
-              v-model.number="cashPaid"
-              type="number"
-              :min="order?.total"
-              step="1000"
+              :value="formatInputCurrency(cashPaid)"
+              @input="handleCashInput"
+              type="text"
+              inputmode="numeric"
               placeholder="Masukkan jumlah uang"
-              class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-left text-lg font-semibold"
             />
           </div>
-          <div v-if="cashPaid >= (order?.total || 0)" class="p-3 rounded-lg bg-success-50 dark:bg-success-500/10">
+          <div v-if="cashPaid >= (cartData?.total || 0)" class="p-3 rounded-lg bg-success-50 dark:bg-success-500/10">
             <div class="flex justify-between text-sm">
               <span class="font-medium text-gray-700 dark:text-gray-300">Kembalian</span>
               <span class="font-bold text-success-600 dark:text-success-400">
-                Rp {{ formatCurrency(cashPaid - (order?.total || 0)) }}
+                Rp {{ formatCurrency(cashPaid - (cartData?.total || 0)) }}
               </span>
             </div>
           </div>
@@ -111,7 +119,7 @@
           </button>
           <button
             @click="handlePayment"
-            :disabled="loading || !selectedMethod || (selectedMethod === 'cash' && cashPaid < (order?.total || 0))"
+            :disabled="loading || !selectedMethod || (selectedMethod === 'cash' && cashPaid < (cartData?.total || 0))"
             class="flex-1 px-4 py-3 text-sm font-semibold text-white transition rounded-lg bg-success-500 hover:bg-success-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ loading ? 'Memproses...' : 'Bayar' }}
@@ -136,7 +144,7 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  order: {
+  cartData: {
     type: Object,
     default: null,
   },
@@ -148,31 +156,62 @@ const loading = ref(false)
 const selectedMethod = ref('cash')
 const cashPaid = ref(0)
 
+// Format number with dots for display (e.g., 50000 -> 50.000)
+const formatInputCurrency = (value) => {
+  if (!value || value === 0) return ''
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+// Handle input and parse formatted string back to number
+const handleCashInput = (event) => {
+  const rawValue = event.target.value.replace(/\D/g, '')
+  cashPaid.value = parseInt(rawValue) || 0
+}
+
 const paymentMethods = [
   { value: 'cash', label: 'Tunai', icon: '💵' },
   { value: 'qris', label: 'QRIS', icon: '📱' },
-  { value: 'transfer', label: 'Transfer', icon: '🏦' },
 ]
 
 const handlePayment = async () => {
-  if (!props.order || !selectedMethod.value) return
+  if (!props.cartData || !selectedMethod.value) return
 
   loading.value = true
   try {
-    const response = await axios.post(`/api/pos/orders/${props.order.id}/pay`, {
+    // Step 1: Create order
+    const orderData = {
+      customer_name: props.cartData.customer_name,
+      session_id: null,
+      items: props.cartData.items.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+      })),
+    }
+
+    const orderResponse = await axios.post('/api/pos/orders', orderData)
+    
+    if (!orderResponse.data.success) {
+      throw new Error('Gagal membuat order')
+    }
+
+    const createdOrder = orderResponse.data.data
+
+    // Step 2: Pay the order immediately
+    const payResponse = await axios.post(`/api/pos/orders/${createdOrder.id}/pay`, {
       payment_method: selectedMethod.value,
     })
 
-    if (response.data.success) {
-      const change = selectedMethod.value === 'cash' ? cashPaid.value - props.order.total : 0
+    if (payResponse.data.success) {
+      const change = selectedMethod.value === 'cash' ? cashPaid.value - props.cartData.total : 0
       
-      notify.success(`Pembayaran berhasil! Invoice: ${response.data.data.invoice_number}`)
-      orderStore.fetchPendingCount() // Update badge count
+      notify.success(`Pembayaran berhasil! Invoice: ${payResponse.data.data.invoice_number}`)
+      orderStore.fetchPendingCount()
+      
       if (change > 0) {
         notify.info(`Kembalian: Rp ${formatCurrency(change)}`, 'Kembalian', 5000)
       }
       
-      emit('success', response.data.data)
+      emit('success', payResponse.data.data)
       closeDialog()
     }
   } catch (error) {
@@ -193,9 +232,9 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat('id-ID').format(value || 0)
 }
 
-watch(() => props.order, (newOrder) => {
-  if (newOrder) {
-    cashPaid.value = Math.ceil((newOrder.total || 0) / 1000) * 1000 // Round up to nearest 1000
+watch(() => props.cartData, (newCart) => {
+  if (newCart) {
+    cashPaid.value = 0
   }
 }, { immediate: true })
 </script>

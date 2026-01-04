@@ -1,12 +1,12 @@
 <template>
   <div
     v-if="show"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50"
     @click.self="closeDialog"
   >
-    <div class="w-full max-w-md overflow-hidden bg-white shadow-2xl rounded-2xl dark:bg-gray-800">
+    <div class="w-full sm:max-w-md max-h-[90vh] overflow-hidden bg-white shadow-2xl rounded-t-2xl sm:rounded-2xl dark:bg-gray-800 flex flex-col">
       <!-- Header -->
-      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
         <div class="flex items-center justify-between">
           <h3 class="text-xl font-semibold text-gray-800 dark:text-white">
             Pembayaran - Meja {{ sessionData?.table_number }}
@@ -23,7 +23,7 @@
       </div>
 
       <!-- Body -->
-      <div class="px-6 py-4 space-y-4">
+      <div class="px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
         <!-- Invoice Summary -->
         <div v-if="sessionData" class="space-y-4">
           <!-- Session Charges -->
@@ -110,12 +110,12 @@
               Uang Dibayar
             </label>
             <input
-              v-model.number="cashPaid"
-              type="number"
-              :min="sessionData?.total_charges"
-              step="1000"
+              :value="formatInputCurrency(cashPaid)"
+              @input="handleCashInput"
+              type="text"
+              inputmode="numeric"
               placeholder="Masukkan jumlah uang"
-              class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-left text-lg font-semibold"
             />
           </div>
           <div v-if="cashPaid >= (sessionData?.total_charges || 0)" class="p-3 rounded-lg bg-success-50 dark:bg-success-500/10">
@@ -175,6 +175,19 @@ const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 const selectedMethod = ref('cash')
 const cashPaid = ref(0)
+
+// Format number with dots for display (e.g., 50000 -> 50.000)
+const formatInputCurrency = (value) => {
+  if (!value || value === 0) return ''
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+// Handle input and parse formatted string back to number
+const handleCashInput = (event) => {
+  // Remove all non-digit characters
+  const rawValue = event.target.value.replace(/\D/g, '')
+  cashPaid.value = parseInt(rawValue) || 0
+}
 
 const paymentMethods = [
   { value: 'cash', label: 'Tunai', icon: '💵' },
