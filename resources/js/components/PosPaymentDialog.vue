@@ -24,7 +24,7 @@
 
       <!-- Body -->
       <div class="px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
-        <!-- Order Summary -->
+        <!-- Order Summary - For Cart Data (new order) -->
         <div v-if="cartData" class="space-y-4">
           <!-- Order Items Detail -->
           <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
@@ -54,6 +54,41 @@
               <span class="text-lg font-bold text-gray-800 dark:text-white">TOTAL BAYAR</span>
               <span class="text-2xl font-bold text-brand-600 dark:text-brand-400">
                 Rp {{ formatCurrency(cartData.total) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Summary - For Existing Order -->
+        <div v-else-if="order" class="space-y-4">
+          <!-- Order Items Detail -->
+          <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
+            <h4 class="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Detail Pesanan</h4>
+            <div class="space-y-2 max-h-40 overflow-y-auto pr-2">
+              <div v-for="(item, index) in order.items" :key="index" class="flex justify-between text-sm">
+                <div class="flex-1">
+                  <span class="text-gray-800 dark:text-white">{{ item.product?.name || item.name }}</span>
+                  <span class="ml-2 text-gray-500 dark:text-gray-400">×{{ item.quantity }}</span>
+                </div>
+                <span class="font-medium text-gray-800 dark:text-white">
+                  Rp {{ formatCurrency(item.subtotal) }}
+                </span>
+              </div>
+            </div>
+            <div class="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+              <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>Customer</span>
+                <span>{{ order.customer_name || 'Pelanggan Umum' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grand Total -->
+          <div class="p-4 rounded-lg bg-brand-50 dark:bg-brand-500/10 border-2 border-brand-500">
+            <div class="flex justify-between items-center">
+              <span class="text-lg font-bold text-gray-800 dark:text-white">TOTAL BAYAR</span>
+              <span class="text-2xl font-bold text-brand-600 dark:text-brand-400">
+                Rp {{ formatCurrency(order.total) }}
               </span>
             </div>
           </div>
@@ -98,11 +133,11 @@
               class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-left text-lg font-semibold"
             />
           </div>
-          <div v-if="cashPaid >= (cartData?.total || 0)" class="p-3 rounded-lg bg-success-50 dark:bg-success-500/10">
+          <div v-if="cashPaid >= (cartData?.total || order?.total || 0)" class="p-3 rounded-lg bg-success-50 dark:bg-success-500/10">
             <div class="flex justify-between text-sm">
               <span class="font-medium text-gray-700 dark:text-gray-300">Kembalian</span>
               <span class="font-bold text-success-600 dark:text-success-400">
-                Rp {{ formatCurrency(cashPaid - (cartData?.total || 0)) }}
+                Rp {{ formatCurrency(cashPaid - (cartData?.total || order?.total || 0)) }}
               </span>
             </div>
           </div>
@@ -119,7 +154,7 @@
           </button>
           <button
             @click="handlePayment"
-            :disabled="loading || !selectedMethod || (selectedMethod === 'cash' && cashPaid < (cartData?.total || 0))"
+            :disabled="loading || !selectedMethod || (selectedMethod === 'cash' && cashPaid < (cartData?.total || order?.total || 0))"
             class="flex-1 px-4 py-3 text-sm font-semibold text-white transition rounded-lg bg-success-500 hover:bg-success-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ loading ? 'Memproses...' : 'Bayar' }}
@@ -145,6 +180,10 @@ const props = defineProps({
     default: false,
   },
   cartData: {
+    type: Object,
+    default: null,
+  },
+  order: {
     type: Object,
     default: null,
   },
@@ -174,35 +213,47 @@ const paymentMethods = [
 ]
 
 const handlePayment = async () => {
-  if (!props.cartData || !selectedMethod.value) return
+  if (!selectedMethod.value) return
+  
+  // Check if we have existing order or new cart
+  const isExistingOrder = props.order && props.order.id
+  const orderTotal = isExistingOrder ? props.order.total : props.cartData?.total
+  
+  if (!isExistingOrder && !props.cartData) return
 
   loading.value = true
   try {
-    // Step 1: Create order
-    const orderData = {
-      customer_name: props.cartData.customer_name,
-      session_id: null,
-      items: props.cartData.items.map(item => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-      })),
-    }
-
-    const orderResponse = await axios.post('/api/pos/orders', orderData)
+    let orderId
     
-    if (!orderResponse.data.success) {
-      throw new Error('Gagal membuat order')
+    if (isExistingOrder) {
+      // Use existing order ID directly
+      orderId = props.order.id
+    } else {
+      // Step 1: Create new order from cart
+      const orderData = {
+        customer_name: props.cartData.customer_name,
+        session_id: null,
+        items: props.cartData.items.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        })),
+      }
+
+      const orderResponse = await axios.post('/api/pos/orders', orderData)
+      
+      if (!orderResponse.data.success) {
+        throw new Error('Gagal membuat order')
+      }
+      orderId = orderResponse.data.data.id
     }
 
-    const createdOrder = orderResponse.data.data
-
-    // Step 2: Pay the order immediately
-    const payResponse = await axios.post(`/api/pos/orders/${createdOrder.id}/pay`, {
+    // Step 2: Pay the order
+    const payResponse = await axios.post(`/api/pos/orders/${orderId}/pay`, {
       payment_method: selectedMethod.value,
     })
 
     if (payResponse.data.success) {
-      const change = selectedMethod.value === 'cash' ? cashPaid.value - props.cartData.total : 0
+      const change = selectedMethod.value === 'cash' ? cashPaid.value - orderTotal : 0
       
       notify.success(`Pembayaran berhasil! Invoice: ${payResponse.data.data.invoice_number}`)
       orderStore.fetchPendingCount()

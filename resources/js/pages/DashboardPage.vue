@@ -96,7 +96,7 @@
     <div v-if="recentTransactions.length > 0" class="mb-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-semibold text-gray-800 dark:text-white">Transaksi Terbaru</h2>
-        <router-link to="/transactions" class="text-sm font-medium text-brand-600 hover:text-brand-700">
+        <router-link to="/app/transactions" class="text-sm font-medium text-brand-600 hover:text-brand-700">
           Lihat Semua →
         </router-link>
       </div>

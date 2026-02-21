@@ -14,7 +14,7 @@
       class="border-b border-gray-200 px-5 py-[18px] dark:border-gray-800"
       :class="{ 'flex items-center justify-center': !isExpanded && !isHovered && !isMobileOpen }"
     >
-      <router-link to="/" class="flex items-center gap-3">
+      <router-link to="/app/dashboard" class="flex items-center gap-3">
         <!-- Logo Icon -->
         <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 shrink-0">
           <span class="text-xl font-bold text-white">R</span>
@@ -178,50 +178,50 @@ const menuGroups = computed(() => [
       {
         icon: GridIcon,
         name: 'Dashboard',
-        path: '/',
+        path: '/app/dashboard',
         adminOnly: true,
       },
       {
         icon: TableIcon,
         name: 'Operasional Biliar',
-        path: '/tables', // Fallback path, though it has children
+        path: '/app/tables', // Fallback path, though it has children
         children: [
             {
                 name: 'Meja Biliar',
-                path: '/tables',
+                path: '/app/tables',
             },
             {
                 name: 'Booking Meja',
-                path: '/bookings',
+                path: '/app/bookings',
             },
             {
                 name: 'Riwayat Biliar',
-                path: '/transactions',
+                path: '/app/transactions',
             },
         ]
       },
       {
         icon: BoxCubeIcon,
         name: 'F&B',
-        path: '/pos',
+        path: '/app/pos',
         children: [
             {
                 name: 'Pesan Makan/Minum',
-                path: '/pos',
+                path: '/app/pos',
             },
             {
                 name: 'Produk',
-                path: '/products',
+                path: '/app/products',
                 adminOnly: true,
             },
             {
                 name: 'Kategori',
-                path: '/categories',
+                path: '/app/categories',
                 adminOnly: true,
             },
             {
                 name: 'Riwayat Pesanan',
-                path: '/orders',
+                path: '/app/orders',
                 badge: orderStore.pendingCount,
             },
         ]
@@ -229,36 +229,36 @@ const menuGroups = computed(() => [
       {
         icon: BarChartIcon,
         name: 'Keuangan',
-        path: '/income',
+        path: '/app/income',
         adminOnly: true,
         children: [
             {
                 name: 'Pemasukan',
-                path: '/income',
+                path: '/app/income',
             },
             {
                 name: 'Pengeluaran',
-                path: '/expenses',
+                path: '/app/expenses',
             },
             {
                 name: 'Laporan',
-                path: '/reports',
+                path: '/app/reports',
             },
         ]
       },
       {
         icon: SettingsIcon,
         name: 'Pengaturan',
-        path: '/rates',
+        path: '/app/rates',
         adminOnly: true,
         children: [
             {
                 name: 'Tarif Biliar',
-                path: '/rates',
+                path: '/app/rates',
             },
             {
                 name: 'Manajemen Pengguna',
-                path: '/users',
+                path: '/app/users',
                 adminOnly: true,
             },
         ]

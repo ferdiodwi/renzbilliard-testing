@@ -3,18 +3,24 @@ import { useAuthStore } from '@/stores/auth';
 
 const routes = [
     {
+        path: '/',
+        name: 'landing',
+        component: () => import('@/pages/LandingPage.vue'),
+        meta: { guest: true, public: true },
+    },
+    {
         path: '/login',
         name: 'login',
         component: () => import('@/pages/LoginPage.vue'),
         meta: { guest: true },
     },
     {
-        path: '/',
+        path: '/app',
         component: () => import('@/pages/MainLayout.vue'),
         meta: { requiresAuth: true },
         children: [
             {
-                path: '',
+                path: 'dashboard',
                 name: 'dashboard',
                 component: () => import('@/pages/DashboardPage.vue'),
                 meta: { adminOnly: true },
@@ -112,10 +118,13 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore();
 
-    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    // Allow public pages (like landing) for everyone
+    if (to.meta.public) {
+        next();
+    } else if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next({ name: 'login' });
-    } else if (to.meta.guest && authStore.isAuthenticated) {
-        // Redirect authenticated users based on role
+    } else if (to.meta.guest && !to.meta.public && authStore.isAuthenticated) {
+        // Redirect authenticated users from login page based on role
         next(authStore.isAdmin ? { name: 'dashboard' } : { name: 'tables' });
     } else if (to.meta.adminOnly && !authStore.isAdmin) {
         // Redirect non-admin to Tables page

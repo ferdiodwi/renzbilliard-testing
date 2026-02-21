@@ -119,7 +119,7 @@ export const useAuthStore = defineStore('auth', {
 
                         // Token expired or invalid - immediately logout and redirect
                         await this.logout();
-                        window.location.href = '/login';
+                        window.location.href = '/';
                     }
                     return Promise.reject(error);
                 }

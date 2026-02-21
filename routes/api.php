@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
 
+// Public rates for landing page
+Route::get('/public/rates', [RateController::class, 'index']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
@@ -58,6 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sessions/{session}/stop', [SessionController::class, 'stop']);
     Route::post('/sessions/{session}/extend', [SessionController::class, 'extend']);
     Route::delete('/sessions/{session}', [SessionController::class, 'destroy']);
+    Route::post('/sessions/{session}/move', [SessionController::class, 'moveTable']);
     
     // Bookings (all authenticated users can manage)
     Route::get('/bookings/check-availability', [BookingController::class, 'checkAvailability']);

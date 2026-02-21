@@ -1,2 +1,9 @@
+# Robots.txt for Renz Billiard
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /app/
+Disallow: /login
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://renz-billiard.ct.ws/sitemap.xml

@@ -28,7 +28,7 @@
                 <span class="block text-xs">{{ user?.role }}</span>
             </span>
              <!-- Logout Button -->
-             <button @click="authStore.logout(); $router.push('/login')" class="text-sm text-red-500 hover:text-red-700">Logout</button>
+             <button @click="authStore.logout(); $router.push('/')" class="text-sm text-red-500 hover:text-red-700">Logout</button>
         </div>
       </div>
     </div>

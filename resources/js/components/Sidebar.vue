@@ -7,7 +7,7 @@
   >
     <!-- SIDEBAR HEADER -->
     <div class="flex items-center justify-between gap-2 px-6 py-5.5 lg:py-6.5">
-      <router-link to="/" class="flex items-center gap-4">
+      <router-link to="/app/dashboard" class="flex items-center gap-4">
         <!-- Logo Icon could go here -->
         <h1 class="text-white text-2xl font-bold">RenzBilliard</h1>
       </router-link>
@@ -43,7 +43,7 @@
             <!-- Dashboard -->
             <li>
               <router-link
-                to="/"
+                to="/app/dashboard"
                 class="group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-gray-200 duration-300 ease-in-out hover:bg-gray-700"
                 :class="{ 'bg-gray-700': currentRoute === 'dashboard' }"
               >
@@ -55,7 +55,7 @@
             <!-- Sessions -->
             <li>
               <router-link
-                to="/sessions"
+                to="/app/sessions"
                 class="group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-gray-200 duration-300 ease-in-out hover:bg-gray-700"
                 :class="{ 'bg-gray-700': currentRoute === 'sessions' }"
               >
@@ -67,7 +67,7 @@
             <!-- Tables -->
             <li>
               <router-link
-                to="/tables"
+                to="/app/tables"
                 class="group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-gray-200 duration-300 ease-in-out hover:bg-gray-700"
                 :class="{ 'bg-gray-700': currentRoute === 'tables' }"
               >
@@ -79,7 +79,7 @@
              <!-- Transaksi -->
             <li>
               <router-link
-                to="/transactions"
+                to="/app/transactions"
                 class="group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-gray-200 duration-300 ease-in-out hover:bg-gray-700"
                 :class="{ 'bg-gray-700': currentRoute === 'transactions' }"
               >
@@ -91,7 +91,7 @@
              <!-- Laporan -->
             <li>
               <router-link
-                to="/reports"
+                to="/app/reports"
                 class="group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-gray-200 duration-300 ease-in-out hover:bg-gray-700"
                 :class="{ 'bg-gray-700': currentRoute === 'reports' }"
               >
@@ -103,7 +103,7 @@
             <!-- Rates (Admin Only) -->
             <li v-if="authStore.isAdmin">
               <router-link
-                to="/rates"
+                to="/app/rates"
                 class="group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-gray-200 duration-300 ease-in-out hover:bg-gray-700"
                 :class="{ 'bg-gray-700': currentRoute === 'rates' }"
               >

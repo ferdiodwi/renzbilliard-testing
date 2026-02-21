@@ -114,7 +114,12 @@ const handleLogin = async () => {
   try {
     await authStore.login(form.value.username, form.value.password)
     notify.success('Login berhasil! Selamat datang.')
-    router.push('/')
+    // Redirect based on role
+    if (authStore.isAdmin) {
+      router.push('/app/dashboard')
+    } else {
+      router.push('/app/tables')
+    }
   } catch (error) {
     const errorMsg = error.response?.data?.message || 'Login gagal. Periksa username dan password Anda.'
     errorMessage.value = errorMsg

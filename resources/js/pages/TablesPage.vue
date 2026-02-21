@@ -65,6 +65,7 @@
         @edit="handleEditTable"
         @delete="handleDeleteTable"
         @order="handleOrderFnB"
+        @move="handleMoveTable"
       />
     </div>
 
@@ -133,6 +134,15 @@
       @close="showOrderDialog = false"
       @success="handleOrderSuccess"
     />
+
+    <!-- Move Table Dialog -->
+    <MoveTableDialog
+      :show="showMoveDialog"
+      :session="selectedSessionForMove"
+      :tables="tables"
+      @close="showMoveDialog = false"
+      @success="handleMoveSuccess"
+    />
   </div>
 </template>
 
@@ -149,6 +159,7 @@ import TableDataDialog from '@/components/TableDataDialog.vue'
 
 import PaymentDialog from '@/components/PaymentDialog.vue'
 import OrderFnBDialog from '@/components/OrderFnBDialog.vue'
+import MoveTableDialog from '@/components/MoveTableDialog.vue'
 import { stopExpiredSessionSound } from '@/utils/audio'
 
 const authStore = useAuthStore()
@@ -174,7 +185,9 @@ const showAddTable = ref(false)
 const showEditTable = ref(false)
 const showPaymentDialog = ref(false)
 const showOrderDialog = ref(false)
+const showMoveDialog = ref(false)
 const selectedSessionForOrder = ref(null)
+const selectedSessionForMove = ref(null)
 const selectedSessionForExtend = ref(null)
 const paymentData = ref(null)
 const isPaymentSuccessful = ref(false)
@@ -341,6 +354,15 @@ const handleExtendSession = (table) => {
 
 const handleExtendSuccess = () => {
     fetchTables()
+}
+
+const handleMoveTable = (table) => {
+  selectedSessionForMove.value = table.active_session
+  showMoveDialog.value = true
+}
+
+const handleMoveSuccess = () => {
+  fetchTables()
 }
 
 // extendSession function removed as it is handled by the dialog now

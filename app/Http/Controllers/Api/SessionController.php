@@ -398,6 +398,129 @@ class SessionController extends Controller
     }
 
     /**
+     * Move session to a different table.
+     */
+    public function moveTable(Request $request, SessionBilliard $session): JsonResponse
+    {
+        $request->validate([
+            'new_table_id' => 'required|exists:tables_billiard,id',
+            'new_rate_id' => 'nullable|exists:rates,id',
+        ]);
+
+        // Check if session is still active
+        if ($session->status !== 'playing') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi sudah selesai, tidak bisa pindah meja',
+            ], 422);
+        }
+
+        $newTable = TableBilliard::findOrFail($request->new_table_id);
+
+        // Check if new table is the same as current
+        if ($session->table_id === $newTable->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Meja tujuan sama dengan meja saat ini',
+            ], 422);
+        }
+
+        // Check if new table is available
+        if (!$newTable->isAvailable()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Meja tujuan tidak tersedia',
+            ], 422);
+        }
+
+        // Check for booking conflicts on new table
+        $sessionEndTime = $session->is_open_billing 
+            ? Carbon::now()->addHours(8) 
+            : $session->end_time;
+        
+        $conflictingBooking = \App\Models\Booking::where('table_id', $newTable->id)
+            ->where('status', 'PENDING')
+            ->where(function($q) use ($sessionEndTime) {
+                $q->where('start_time', '<', $sessionEndTime)
+                  ->where('end_time', '>', Carbon::now());
+            })
+            ->first();
+        
+        if ($conflictingBooking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Meja tujuan sudah di-booking untuk jam ' . 
+                             $conflictingBooking->start_time->format('H:i') . ' - ' .
+                             $conflictingBooking->end_time->format('H:i'),
+            ], 422);
+        }
+
+        $oldTable = $session->table;
+        $oldRate = $session->rate;
+
+        DB::beginTransaction();
+        try {
+            $updateData = [
+                'table_id' => $newTable->id,
+            ];
+
+            // If new rate is provided, update rate only if it's HIGHER (to prevent revenue loss)
+            if ($request->new_rate_id && $request->new_rate_id != $session->rate_id) {
+                $newRate = Rate::findOrFail($request->new_rate_id);
+                
+                // Only change rate if new rate is higher or equal
+                if ($newRate->price_per_hour >= $oldRate->price_per_hour) {
+                    $updateData['rate_id'] = $newRate->id;
+                    
+                    // Recalculate total price with new rate using ORIGINAL duration
+                    if (!$session->is_open_billing && $session->duration_minutes) {
+                        $updateData['total_price'] = $newRate->calculatePrice($session->duration_minutes);
+                    }
+                }
+                // If new rate is cheaper, keep old rate and price (no changes)
+            }
+
+            // Update session
+            $session->update($updateData);
+
+            // Update old table status to available
+            $oldTable->update(['status' => 'available']);
+
+            // Update new table status to playing
+            $newTable->update(['status' => 'playing']);
+
+            DB::commit();
+
+            // Refresh session to get updated data
+            $session->refresh();
+            $session->load(['table', 'rate']);
+
+            $message = 'Berhasil pindah dari Meja ' . $oldTable->table_number . ' ke Meja ' . $newTable->table_number;
+            if ($request->new_rate_id && $request->new_rate_id != $oldRate->id) {
+                $message .= ' dengan tarif ' . $session->rate->name;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'data' => [
+                    'session' => $session,
+                    'old_table' => $oldTable->table_number,
+                    'new_table' => $newTable->table_number,
+                    'old_rate' => $oldRate->name,
+                    'new_rate' => $session->rate->name,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal pindah meja: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get session details.
      */
     public function show(SessionBilliard $session): JsonResponse

@@ -241,6 +241,17 @@
           <span class="text-base">🍔</span> Pesan Makanan/Minuman
         </button>
         
+        <!-- Move Table Button -->
+        <button
+          @click="$emit('move', table)"
+          class="w-full px-3 py-2 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition flex items-center justify-center gap-2 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          Pindah Meja
+        </button>
+        
         <div class="flex gap-2">
           <!-- Hide Extend for Open Billing AND Prepaid sessions -->
           <button
@@ -276,7 +287,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['start', 'extend', 'stop', 'edit', 'delete'])
+const emit = defineEmits(['start', 'extend', 'stop', 'edit', 'delete', 'order', 'move'])
 
 const authStore = useAuthStore()
 const isMenuOpen = ref(false)
